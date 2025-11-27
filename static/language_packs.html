@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Book Worm – Language Packs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #05070b;
+      --bg-elevated: #0d1018;
+      --accent: #7dd3fc;
+      --accent-soft: rgba(125, 211, 252, 0.15);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #1f2933;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: radial-gradient(circle at top, #111827, #020617);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 1100px;
+      padding: 24px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .header-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-title span.logo-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #f472b6, #0ea5e9);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #0b1020;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.45);
+    }
+
+    .header-sub {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .global-actions {
+      margin: 10px 0 16px 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .slots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px;
+    }
+
+    .slot-card {
+      background: linear-gradient(
+        145deg,
+        rgba(15, 23, 42, 0.98),
+        rgba(15, 23, 42, 0.92)
+      );
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 12px 35px rgba(15, 23, 42, 0.7);
+    }
+
+    .slot-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .slot-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .slot-name-input {
+      width: 100%;
+      font-size: 0.8rem;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text);
+    }
+
+    .slot-name-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.5);
+    }
+
+    .slot-textarea {
+      width: 100%;
+      min-height: 140px;
+      max-height: 220px;
+      resize: vertical;
+      font-size: 0.8rem;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.96);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    }
+
+    .slot-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.5);
+    }
+
+    .slot-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .btn {
+      flex: 1;
+      cursor: pointer;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: background 0.15s, border-color 0.15s, transform 0.05s;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(to right, #0ea5e9, #6366f1);
+      border-color: transparent;
+      color: #0b1020;
+      font-weight: 600;
+    }
+
+    .btn-outline {
+      border-color: rgba(148, 163, 184, 0.65);
+    }
+
+    .btn-danger {
+      border-color: rgba(248, 113, 113, 0.7);
+      color: #fecaca;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      background: rgba(31, 41, 55, 0.95);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(to right, #38bdf8, #818cf8);
+    }
+
+    .btn-danger:hover {
+      background: rgba(127, 29, 29, 0.95);
+    }
+
+    .footer-note {
+      margin-top: 16px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .footer-note span {
+      color: var(--accent);
+    }
+
+    .file-input-hidden {
+      display: none;
+    }
+
+    @media (max-width: 640px) {
+      .shell {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="header">
+      <div class="header-title">
+        <span class="logo-circle">BW</span>
+        Book Worm – Language Packs
+      </div>
+      <div class="header-sub">
+        Save, reload, export & import your custom conlangs (4 slots)
+      </div>
+    </header>
+
+    <div class="global-actions">
+      <p class="hint">
+        👉 Workflow:
+        <strong>Generate a language in Book Worm → Copy its output → Paste into a
+          slot → Save.</strong>
+        Slots live in this browser (localStorage) and can also be backed up as a JSON
+        file.
+      </p>
+      <div style="display:flex; flex-wrap: wrap; gap:6px;">
+        <button id="exportAllBtn" class="btn btn-outline">
+          ⬇ Export All Slots
+        </button>
+        <button id="importAllBtn" class="btn btn-outline">
+          ⬆ Import From File
+        </button>
+        <input type="file" id="importFileInput" class="file-input-hidden" accept=".json" />
+      </div>
+    </div>
+
+    <div class="slots-grid">
+      <!-- Slot 1 -->
+      <div class="slot-card" data-slot="1">
+        <div class="slot-header">
+          <div class="slot-title">Slot 1</div>
+          <input
+            class="slot-name-input"
+            placeholder="Language name (e.g., Nythic Prime)"
+          />
+        </div>
+        <textarea
+          class="slot-textarea"
+          placeholder="Paste full language pack here: phonology, grammar, writing system, vocab, example sentences..."
+        ></textarea>
+        <div class="slot-buttons">
+          <button class="btn btn-primary slot-save">Save</button>
+          <button class="btn slot-load">Load</button>
+          <button class="btn btn-outline slot-copy">Copy Lab Prompt</button>
+          <button class="btn btn-danger slot-clear">Clear</button>
+        </div>
+      </div>
+
+      <!-- Slot 2 -->
+      <div class="slot-card" data-slot="2">
+        <div class="slot-header">
+          <div class="slot-title">Slot 2</div>
+          <input
+            class="slot-name-input"
+            placeholder="Language name (e.g., Draikonic High)"
+          />
+        </div>
+        <textarea
+          class="slot-textarea"
+          placeholder="Paste full language pack here..."
+        ></textarea>
+        <div class="slot-buttons">
+          <button class="btn btn-primary slot-save">Save</button>
+          <button class="btn slot-load">Load</button>
+          <button class="btn btn-outline slot-copy">Copy Lab Prompt</button>
+          <button class="btn btn-danger slot-clear">Clear</button>
+        </div>
+      </div>
+
+      <!-- Slot 3 -->
+      <div class="slot-card" data-slot="3">
+        <div class="slot-header">
+          <div class="slot-title">Slot 3</div>
+          <input
+            class="slot-name-input"
+            placeholder="Language name (e.g., Aeyunic Songtongue)"
+          />
+        </div>
+        <textarea
+          class="slot-textarea"
+          placeholder="Paste full language pack here..."
+        ></textarea>
+        <div class="slot-buttons">
+          <button class="btn btn-primary slot-save">Save</button>
+          <button class="btn slot-load">Load</button>
+          <button class="btn btn-outline slot-copy">Copy Lab Prompt</button>
+          <button class="btn btn-danger slot-clear">Clear</button>
+        </div>
+      </div>
+
+      <!-- Slot 4 -->
+      <div class="slot-card" data-slot="4">
+        <div class="slot-header">
+          <div class="slot-title">Slot 4</div>
+          <input
+            class="slot-name-input"
+            placeholder="Language name (e.g., Kumipai Sky-Speech)"
+          />
+        </div>
+        <textarea
+          class="slot-textarea"
+          placeholder="Paste full language pack here..."
+        ></textarea>
+        <div class="slot-buttons">
+          <button class="btn btn-primary slot-save">Save</button>
+          <button class="btn slot-load">Load</button>
+          <button class="btn btn-outline slot-copy">Copy Lab Prompt</button>
+          <button class="btn btn-danger slot-clear">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      Slots are stored locally in <span>localStorage</span> and can be backed up as
+      <span>.json</span>.
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY_PREFIX = "bookworm_language_slot_";
+
+    function storageKey(slot) {
+      return STORAGE_KEY_PREFIX + slot;
+    }
+
+    function loadAllSlotsIntoUI() {
+      const cards = document.querySelectorAll(".slot-card");
+      cards.forEach((card) => {
+        const slot = card.dataset.slot;
+        const nameInput = card.querySelector(".slot-name-input");
+        const textarea = card.querySelector(".slot-textarea");
+
+        try {
+          const raw = localStorage.getItem(storageKey(slot));
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          nameInput.value = parsed.name || "";
+          textarea.value = parsed.body || "";
+        } catch (e) {
+          console.warn("Failed to parse language slot", slot, e);
+        }
+      });
+    }
+
+    function saveSlot(card) {
+      const slot = card.dataset.slot;
+      const nameInput = card.querySelector(".slot-name-input");
+      const textarea = card.querySelector(".slot-textarea");
+
+      const payload = {
+        name: nameInput.value.trim() || `Language Slot ${slot}`,
+        body: textarea.value,
+        updated_at: new Date().toISOString(),
+      };
+
+      localStorage.setItem(storageKey(slot), JSON.stringify(payload));
+
+      card.style.boxShadow = "0 0 0 1px rgba(56, 189, 248, 0.8)";
+      setTimeout(() => {
+        card.style.boxShadow = "0 12px 35px rgba(15, 23, 42, 0.7)";
+      }, 300);
+    }
+
+    function loadSlot(card) {
+      const slot = card.dataset.slot;
+      const nameInput = card.querySelector(".slot-name-input");
+      const textarea = card.querySelector(".slot-textarea");
+
+      const raw = localStorage.getItem(storageKey(slot));
+      if (!raw) return;
+
+      try {
+        const parsed = JSON.parse(raw);
+        nameInput.value = parsed.name || "";
+        textarea.value = parsed.body || "";
+      } catch (e) {
+        console.warn("Failed to load language slot", slot, e);
+      }
+    }
+
+    function clearSlot(card) {
+      const slot = card.dataset.slot;
+      localStorage.removeItem(storageKey(slot));
+
+      const nameInput = card.querySelector(".slot-name-input");
+      const textarea = card.querySelector(".slot-textarea");
+      nameInput.value = "";
+      textarea.value = "";
+
+      card.style.opacity = "0.4";
+      setTimeout(() => {
+        card.style.opacity = "1";
+      }, 200);
+    }
+
+    async function copySlotForLab(card) {
+      const slot = card.dataset.slot;
+      const nameInput = card.querySelector(".slot-name-input");
+      const textarea = card.querySelector(".slot-textarea");
+
+      const name = nameInput.value.trim() || `Language Slot ${slot}`;
+      const body = textarea.value.trim();
+
+      if (!body) {
+        alert("This slot is empty. Paste or load a language pack first.");
+        return;
+      }
+
+      const prompt = `[MODE: LANGUAGE_LAB]\n\nYou are Book Worm's Language Lab.\nThe following is a saved language pack called "${name}".\nUse it as LOCKED CANON for this language.\n\n--- LANGUAGE PACK START ---\n${body}\n--- LANGUAGE PACK END ---\n\nWhen I paste this into you, you should expand, refine, or build new phrases and scripts that stay consistent with this pack.`;
+
+      try {
+        await navigator.clipboard.writeText(prompt);
+        alert("Copied a ready-to-use Language Lab prompt to clipboard. Paste it into Book Worm's chat.");
+      } catch (e) {
+        // fallback: select text in textarea instead
+        textarea.focus();
+        textarea.select();
+        alert("Clipboard access blocked. The slot text is selected — copy it manually (Ctrl+C) and paste into Book Worm.");
+      }
+    }
+
+    function exportAllSlots() {
+      const payload = {};
+      for (let slot = 1; slot <= 4; slot++) {
+        const raw = localStorage.getItem(storageKey(slot));
+        if (raw) {
+          try {
+            payload[slot] = JSON.parse(raw);
+          } catch (e) {
+            console.warn("Failed to parse slot for export", slot, e);
+          }
+        }
+      }
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      a.download = `bookworm_language_packs_${timestamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function importAllSlots(file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const text = event.target.result;
+          const data = JSON.parse(text);
+
+          for (let slot = 1; slot <= 4; slot++) {
+            const key = String(slot);
+            if (data[key]) {
+              localStorage.setItem(storageKey(slot), JSON.stringify(data[key]));
+            }
+          }
+
+          loadAllSlotsIntoUI();
+          alert("Language packs imported successfully.");
+        } catch (e) {
+          console.error("Failed to import language packs", e);
+          alert("Failed to import file. Make sure it is a valid JSON exported from this page.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function setupHandlers() {
+      const cards = document.querySelectorAll(".slot-card");
+      cards.forEach((card) => {
+        const saveBtn = card.querySelector(".slot-save");
+        const loadBtn = card.querySelector(".slot-load");
+        const clearBtn = card.querySelector(".slot-clear");
+        const copyBtn = card.querySelector(".slot-copy");
+
+        saveBtn.addEventListener("click", () => saveSlot(card));
+        loadBtn.addEventListener("click", () => loadSlot(card));
+        clearBtn.addEventListener("click", () => clearSlot(card));
+        copyBtn.addEventListener("click", () => copySlotForLab(card));
+      });
+
+      const exportBtn = document.getElementById("exportAllBtn");
+      const importBtn = document.getElementById("importAllBtn");
+      const importInput = document.getElementById("importFileInput");
+
+      exportBtn.addEventListener("click", exportAllSlots);
+      importBtn.addEventListener("click", () => importInput.click());
+      importInput.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        importAllSlots(file);
+        // reset input so same file can be chosen again later if needed
+        importInput.value = "";
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadAllSlotsIntoUI();
+      setupHandlers();
+    });
+  </script>
+</body>
+</html>

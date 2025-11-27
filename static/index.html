@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Book Worm AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-elevated: #020617;
+      --panel: #020617;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.15);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #1f2937;
+      --danger: #f97373;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: radial-gradient(circle at top, #020617 0, #000 70%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+    }
+
+    .app-shell {
+      width: 100%;
+      max-width: 1100px;
+      margin: 16px;
+      background: radial-gradient(circle at top left, #020617 0, #020617 40%, #000 100%);
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      box-shadow: 0 25px 80px rgba(15, 23, 42, 0.85);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header.app-header {
+      padding: 12px 16px 8px 16px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-logo {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 25% 20%, #f97316, #22d3ee);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #020617;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.7);
+    }
+
+    .brand-text-main {
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    .brand-text-sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .small-pill {
+      font-size: 0.65rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      color: var(--muted);
+    }
+
+    .btn {
+      cursor: pointer;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: background 0.15s, border-color 0.15s, transform 0.05s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(to right, #0ea5e9, #6366f1);
+      border-color: transparent;
+      color: #020617;
+      font-weight: 600;
+    }
+
+    .btn-outline {
+      border-color: rgba(148, 163, 184, 0.7);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      background: rgba(31, 41, 55, 0.95);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(to right, #22d3ee, #818cf8);
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .domain-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.95);
+      overflow-x: auto;
+    }
+
+    .domain-tab {
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .domain-tab.active {
+      border-color: rgba(56, 189, 248, 0.7);
+      background: radial-gradient(circle at top left, #0f172a 0, #020617 80%);
+      color: var(--accent);
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.4);
+    }
+
+    .domain-tab:hover {
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .content {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+
+    .col-main {
+      flex: 2;
+      border-right: 1px solid rgba(15, 23, 42, 0.98);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .col-side {
+      flex: 1.15;
+      display: flex;
+      flex-direction: column;
+      background: radial-gradient(circle at top right, #020617, #020617 50%, #000 100%);
+    }
+
+    .panel {
+      padding: 10px;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.95);
+    }
+
+    .panel-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .panel-sub {
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .msg {
+      max-width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .msg.user {
+      align-self: flex-end;
+      background: radial-gradient(circle at top left, #22d3ee, #0ea5e9);
+      color: #020617;
+    }
+
+    .msg.assistant {
+      align-self: flex-start;
+      background: rgba(15, 23, 42, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+
+    .msg.system {
+      align-self: center;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.75rem;
+      padding: 4px 0;
+    }
+
+    .chat-input-area {
+      border-top: 1px solid rgba(15, 23, 42, 0.98);
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: radial-gradient(circle at bottom, #020617 0, #000 60%);
+    }
+
+    .lab-controls {
+      display: none;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .lab-controls.visible {
+      display: flex;
+    }
+
+    .lab-controls select {
+      flex: 1;
+      padding: 4px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.96);
+      color: var(--text);
+      font-size: 0.75rem;
+    }
+
+    .lab-controls select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.7);
+    }
+
+    .voice-toggle {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .voice-toggle input {
+      accent-color: var(--accent);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 6px;
+      align-items: flex-end;
+    }
+
+    textarea#user-input {
+      flex: 1;
+      min-height: 40px;
+      max-height: 120px;
+      resize: vertical;
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: 10px;
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      padding: 6px 8px;
+      color: var(--text);
+      font-size: 0.8rem;
+      font-family: inherit;
+    }
+
+    textarea#user-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.7);
+    }
+
+    .btn-send {
+      min-width: 68px;
+      height: 32px;
+      font-size: 0.78rem;
+    }
+
+    .side-panel-body {
+      flex: 1;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+    }
+
+    .side-section {
+      border-radius: 12px;
+      border: 1px solid rgba(15, 23, 42, 0.98);
+      padding: 8px;
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    .side-section h3 {
+      margin: 0 0 4px 0;
+      font-size: 0.8rem;
+    }
+
+    .side-section p {
+      margin: 0;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .image-tools {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .image-tools textarea {
+      width: 100%;
+      min-height: 80px;
+      max-height: 150px;
+      resize: vertical;
+      background: rgba(15, 23, 42, 0.96);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 5px 7px;
+      color: var(--text);
+      font-size: 0.75rem;
+    }
+
+    .image-tools textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.7);
+    }
+
+    .image-url-list {
+      font-size: 0.7rem;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .image-url-list a {
+      color: var(--accent);
+      text-decoration: none;
+      word-break: break-all;
+    }
+
+    .image-url-list a:hover {
+      text-decoration: underline;
+    }
+
+    .small-note {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    @media (max-width: 900px) {
+      .content {
+        flex-direction: column;
+      }
+      .col-main {
+        border-right: none;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.98);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .app-shell {
+        margin: 8px;
+      }
+      header.app-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .header-controls {
+        align-self: stretch;
+        justify-content: space-between;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-logo">BW</div>
+        <div>
+          <div class="brand-text-main">Book Worm AI</div>
+          <div class="brand-text-sub">AAA Story, Game, Music & Language Lab</div>
+        </div>
+      </div>
+      <div class="header-controls">
+        <div class="small-pill">Local Dev • Owner</div>
+        <button id="openLanguagePacks" class="btn btn-outline">Language Packs</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="domain-tabs" id="domainTabs">
+        <button class="domain-tab active" data-domain="STORYTELLING">
+          Storytelling
+        </button>
+        <button class="domain-tab" data-domain="GAME_DEV">
+          Game Dev
+        </button>
+        <button class="domain-tab" data-domain="MUSIC_DEV">
+          Music Dev
+        </button>
+        <button class="domain-tab" data-domain="BOOK_WRITING">
+          Book Writing
+        </button>
+        <button class="domain-tab" data-domain="CODING">
+          Coding
+        </button>
+        <button class="domain-tab" data-domain="LANGUAGE_LAB">
+          Language Lab
+        </button>
+        <button class="domain-tab" data-domain="IMAGES">
+          Images
+        </button>
+      </div>
+
+      <div class="content">
+        <!-- MAIN CHAT COLUMN -->
+        <section class="col-main">
+          <div class="panel">
+            <div class="panel-title" id="domainTitle">Storytelling Mode</div>
+            <div class="panel-sub" id="domainHint">
+              Worldbuilding, lore, characters, scenes & canon-friendly expansion.
+            </div>
+          </div>
+
+          <div id="messages" class="messages">
+            <div class="msg system">
+              Book Worm is ready. Choose a tab, then describe what you want.
+            </div>
+          </div>
+
+          <div class="chat-input-area">
+            <div id="labControls" class="lab-controls">
+              <span>Language pack:</span>
+              <select id="labSlotSelect">
+                <option value="none">None</option>
+                <option value="1">Slot 1</option>
+                <option value="2">Slot 2</option>
+                <option value="3">Slot 3</option>
+                <option value="4">Slot 4</option>
+              </select>
+              <span style="font-size:0.7rem; color:var(--muted);">
+                Uses saved pack as LOCKED CANON in Language Lab.
+              </span>
+            </div>
+            <div class="input-row">
+              <textarea
+                id="user-input"
+                placeholder="Type your request here..."
+              ></textarea>
+              <button id="sendBtn" class="btn btn-primary btn-send">
+                Send
+              </button>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+              <div class="voice-toggle">
+                <input type="checkbox" id="voiceToggle" checked />
+                <label for="voiceToggle">Auto-speak replies</label>
+              </div>
+              <div style="font-size:0.7rem; color:var(--muted);">
+                Domain label + depth are handled automatically.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SIDE COLUMN -->
+        <aside class="col-side">
+          <div class="panel">
+            <div class="panel-title">Tools & Panels</div>
+            <div class="panel-sub">
+              Side tools adapt to tab: image prompts, quick notes, etc.
+            </div>
+          </div>
+          <div class="side-panel-body">
+            <div class="side-section">
+              <h3>Images – Prompt Forge</h3>
+              <p>
+                Describe a scene or character and ask Book Worm to enhance it
+                into a god-tier image prompt. Then paste into the Image Generator,
+                or use the box below to call the backend directly.
+              </p>
+              <div class="image-tools">
+                <textarea
+                  id="imagePrompt"
+                  placeholder="Describe what you want to see..."
+                ></textarea>
+                <button id="imageGenerateBtn" class="btn btn-outline">
+                  Generate Image (API)
+                </button>
+                <div class="image-url-list" id="imageUrlList"></div>
+                <div class="small-note">
+                  Note: Image API access depends on your OpenAI account + billing.
+                </div>
+              </div>
+            </div>
+
+            <div class="side-section">
+              <h3>Notes</h3>
+              <p>
+                Use the chat for main work. This panel is just for quick reminders
+                or ideas as you go.
+              </p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // --- Basic state ---
+    let activeDomain = "STORYTELLING";
+    let depthMode = "deep";
+    let currentProjectId = 1; // if your backend defaults to project 1
+
+    const messagesEl = document.getElementById("messages");
+    const inputEl = document.getElementById("user-input");
+    const sendBtn = document.getElementById("sendBtn");
+    const domainTabs = document.querySelectorAll(".domain-tab");
+    const domainTitleEl = document.getElementById("domainTitle");
+    const domainHintEl = document.getElementById("domainHint");
+    const labControlsEl = document.getElementById("labControls");
+    const labSlotSelectEl = document.getElementById("labSlotSelect");
+    const voiceToggleEl = document.getElementById("voiceToggle");
+    const openLanguagePacksBtn = document.getElementById("openLanguagePacks");
+
+    const imagePromptEl = document.getElementById("imagePrompt");
+    const imageGenerateBtn = document.getElementById("imageGenerateBtn");
+    const imageUrlListEl = document.getElementById("imageUrlList");
+
+    // --- Language pack storage key (shared with language_packs.html) ---
+    const LANG_STORAGE_PREFIX = "bookworm_language_slot_";
+
+    function getLanguagePack(slot) {
+      try {
+        const raw = localStorage.getItem(LANG_STORAGE_PREFIX + slot);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed.body) return null;
+        return parsed;
+      } catch (e) {
+        console.warn("Failed to read language slot", slot, e);
+        return null;
+      }
+    }
+
+    // --- UI helpers ---
+    function appendMessage(role, text) {
+      const div = document.createElement("div");
+      div.classList.add("msg", role);
+      div.textContent = text;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function setDomainUI(domain) {
+      activeDomain = domain;
+      domainTabs.forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.domain === domain);
+      });
+
+      // Show / hide language lab controls
+      if (domain === "LANGUAGE_LAB") {
+        labControlsEl.classList.add("visible");
+      } else {
+        labControlsEl.classList.remove("visible");
+      }
+
+      // Update title + hint
+      switch (domain) {
+        case "STORYTELLING":
+          domainTitleEl.textContent = "Storytelling Mode";
+          domainHintEl.textContent =
+            "Worldbuilding, lore, races, flora, fauna, realms & narrative.";
+          break;
+        case "GAME_DEV":
+          domainTitleEl.textContent = "Game Dev Mode";
+          domainHintEl.textContent =
+            "AAA systems, combat, bosses, level design, progression & mechanics.";
+          break;
+        case "MUSIC_DEV":
+          domainTitleEl.textContent = "Music Dev Mode";
+          domainHintEl.textContent =
+            "Lyrics, beats, OST, ambience, and audio direction.";
+          break;
+        case "BOOK_WRITING":
+          domainTitleEl.textContent = "Book Writing Mode";
+          domainHintEl.textContent =
+            "Chapters, prose, pacing, POV, and novel-ready structure.";
+          break;
+        case "CODING":
+          domainTitleEl.textContent = "Coding Mode";
+          domainHintEl.textContent =
+            "Code snippets, tools, scripts, and AI upgrade planning.";
+          break;
+        case "LANGUAGE_LAB":
+          domainTitleEl.textContent = "Language Lab Mode";
+          domainHintEl.textContent =
+            "Use saved language packs as LOCKED CANON. Pick a slot, then ask for phrases, scripts, or expansions.";
+          break;
+        case "IMAGES":
+          domainTitleEl.textContent = "Image Prompt Mode";
+          domainHintEl.textContent =
+            "Describe visual concepts. Book Worm will craft god-tier prompts for the image generator.";
+          break;
+        default:
+          domainTitleEl.textContent = "Free Mode";
+          domainHintEl.textContent =
+            "General mixed tasks across story, game, music and more.";
+      }
+    }
+
+    // --- Text-to-speech (simple auto speak) ---
+    let lastSpokenText = "";
+    function speak(text) {
+      if (!voiceToggleEl.checked) return;
+      if (!("speechSynthesis" in window)) return;
+
+      const trimmed = text.trim();
+      if (!trimmed || trimmed === lastSpokenText) return;
+      lastSpokenText = trimmed;
+
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(trimmed);
+      utter.rate = 1;
+      utter.pitch = 1;
+      utter.volume = 1;
+
+      // Try to pick a female / clear English voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(
+        (v) =>
+          /en/i.test(v.lang) &&
+          /female|woman|girl|UK English Female|Google UK English Female/i.test(
+            v.name
+          )
+      );
+      if (preferred) {
+        utter.voice = preferred;
+      }
+
+      window.speechSynthesis.speak(utter);
+    }
+
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        // just trigger voices preload
+      };
+    }
+
+    // --- Send to backend ---
+    async function sendPrompt() {
+      const raw = inputEl.value.trim();
+      if (!raw) return;
+
+      // Show user message
+      appendMessage("user", raw);
+      inputEl.value = "";
+
+      // Build domain-labeled prompt
+      let fullPrompt = `[DOMAIN: ${activeDomain}]\n\n${raw}`;
+
+      // Language Lab: wrap with language pack if selected
+      if (activeDomain === "LANGUAGE_LAB") {
+        const selected = labSlotSelectEl.value;
+        if (selected !== "none") {
+          const pack = getLanguagePack(selected);
+          if (pack) {
+            fullPrompt =
+              `[MODE: LANGUAGE_LAB]\n` +
+              `You are Book Worm's Language Lab.\n` +
+              `The following language pack is LOCKED CANON and must be obeyed:\n\n` +
+              `--- LANGUAGE PACK "${pack.name || "Slot " + selected}" START ---\n` +
+              `${pack.body}\n` +
+              `--- LANGUAGE PACK END ---\n\n` +
+              `User request:\n${raw}`;
+          } else {
+            appendMessage(
+              "system",
+              `No saved language in slot ${selected}. Open "Language Packs" in the header and save one first.`
+            );
+          }
+        }
+      }
+
+      // Show "thinking..."
+      const thinkingId = "thinking-" + Date.now();
+      const thinkingDiv = document.createElement("div");
+      thinkingDiv.classList.add("msg", "assistant");
+      thinkingDiv.id = thinkingId;
+      thinkingDiv.textContent = "…";
+      messagesEl.appendChild(thinkingDiv);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      try {
+        const body = {
+          prompt: fullPrompt,
+          mode: "auto",
+          depth: depthMode,
+          project_id: currentProjectId,
+        };
+
+        const res = await fetch("/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          data = { response: "⚠ Backend error: invalid JSON response." };
+        }
+
+        // Remove thinking
+        const node = document.getElementById(thinkingId);
+        if (node) node.remove();
+
+        if (!res.ok) {
+          appendMessage(
+            "assistant",
+            data?.detail
+              ? `⚠ Backend error:\n${JSON.stringify(data.detail)}`
+              : `⚠ Backend error: HTTP ${res.status}`
+          );
+          speak(
+            "There was a backend error. Check your server logs or subscription status."
+          );
+          return;
+        }
+
+        const text = data?.response || "(No response from backend)";
+        appendMessage("assistant", text);
+        speak(text);
+      } catch (err) {
+        const node = document.getElementById(thinkingId);
+        if (node) node.remove();
+        appendMessage(
+          "assistant",
+          "⚠ Request failed. Is the FastAPI server running on port 5050?"
+        );
+        speak("The request failed. Please make sure the server is running.");
+      }
+    }
+
+    // --- Image generation (calls /generate_image if available) ---
+    async function generateImage() {
+      const prompt = imagePromptEl.value.trim();
+      if (!prompt) return;
+      imageUrlListEl.innerHTML = "";
+      const waitP = document.createElement("div");
+      waitP.textContent = "Contacting image API…";
+      imageUrlListEl.appendChild(waitP);
+
+      try {
+        const body = {
+          prompt: prompt,
+          size: "1024x1024",
+          quality: "high", // your backend should map/validate this
+          n: 1,
+        };
+        const res = await fetch("/generate_image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+
+        imageUrlListEl.innerHTML = "";
+        if (!res.ok) {
+          const d = data?.detail || JSON.stringify(data);
+          const errDiv = document.createElement("div");
+          errDiv.textContent = `Image error: ${d}`;
+          imageUrlListEl.appendChild(errDiv);
+          return;
+        }
+
+        const urls = data?.urls || [];
+        if (!urls.length) {
+          const noneDiv = document.createElement("div");
+          noneDiv.textContent = "No image URLs returned.";
+          imageUrlListEl.appendChild(noneDiv);
+          return;
+        }
+
+        urls.forEach((u, idx) => {
+          const link = document.createElement("a");
+          link.href = u;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = `Image ${idx + 1}`;
+          imageUrlListEl.appendChild(link);
+        });
+      } catch (e) {
+        imageUrlListEl.innerHTML =
+          "<div>Request failed. Check console or backend logs.</div>";
+      }
+    }
+
+    // --- Event wiring ---
+    domainTabs.forEach((btn) => {
+      btn.addEventListener("click", () =>
+        setDomainUI(btn.dataset.domain || "STORYTELLING")
+      );
+    });
+
+    sendBtn.addEventListener("click", () => sendPrompt());
+
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendPrompt();
+      }
+    });
+
+    openLanguagePacksBtn.addEventListener("click", () => {
+      // Open language_packs.html in a new tab
+      window.open("/static/language_packs.html", "_blank");
+    });
+
+    imageGenerateBtn.addEventListener("click", () => generateImage());
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // ensure correct initial domain
+      setDomainUI("STORYTELLING");
+    });
+  </script>
+</body>
+</html>

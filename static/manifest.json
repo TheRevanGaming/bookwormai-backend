@@ -1,0 +1,23 @@
+{
+  "name": "Book Worm AI",
+  "short_name": "Book Worm",
+  "description": "AAA-grade AI companion for worldbuilding, game dev, music, coding, and canon management.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050814",
+  "theme_color": "#0b1020",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#0D0F12"/>
+  <path
+    d="
+      M512 240
+      C430 240, 360 320, 360 400
+      C360 490, 450 560, 530 540
+      C600 520, 630 460, 600 420
+      C570 380, 500 390, 490 445
+      C480 500, 540 540, 590 520
+    "
+    stroke="#2DF5D3"
+    stroke-width="34"
+    fill="none"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

@@ -1,0 +1,18 @@
+<svg width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+  <rect width="300" height="300" fill="#0D0F12"/>
+  <path
+    d="
+      M150 60
+      C110 60, 80 95, 80 135
+      C80 180, 120 215, 160 205
+      C190 198, 205 170, 190 150
+      C175 130, 145 135, 140 155
+      C135 175, 155 190, 175 180
+    "
+    stroke="white"
+    stroke-width="6"
+    fill="none"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
