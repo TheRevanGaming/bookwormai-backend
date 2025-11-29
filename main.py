@@ -1,121 +1,118 @@
 import os
+import json
 import sqlite3
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from dotenv import load_dotenv
 from openai import OpenAI
 
-# ---------------------------
-# Environment & OpenAI client
-# ---------------------------
-
-BASE_DIR = Path(__file__).resolve().parent
-
-# Load .env file if present
-load_dotenv(dotenv_path=BASE_DIR / ".env")
+# -----------------------------
+# ENV + OPENAI CLIENT
+# -----------------------------
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
-    raise RuntimeError(
-        "OPENAI_API_KEY is not set. "
-        "Edit your .env file in ~/bookworm and add:\n"
-        'OPENAI_API_KEY="sk-...."\n'
-    )
+    raise RuntimeError("OPENAI_API_KEY is not set in environment.")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# ---------------------------
-# System prompt
-# ---------------------------
+# -----------------------------
+# SYSTEM PROMPT
+# -----------------------------
 
-SYSTEM_PROMPT_PATH = BASE_DIR / "prompts" / "system_prompt.txt"
-if not SYSTEM_PROMPT_PATH.exists():
-    raise RuntimeError(f"System prompt file not found at {SYSTEM_PROMPT_PATH}")
+SYSTEM_PROMPT_PATH = Path("prompts/system_prompt.txt")
+if SYSTEM_PROMPT_PATH.exists():
+    SYSTEM_PROMPT = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
+else:
+    SYSTEM_PROMPT = """
+You are Book Worm AI — an advanced AAA-quality assistant for:
 
-SYSTEM_PROMPT = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
+- Storytelling & book writing
+- AAA game development
+- Music & lyrics
+- Language creation
+- Concept art prompts
 
-# ---------------------------
-# Database helpers
-# ---------------------------
+Obey LOCKED CANON when provided. Infer the active domain from tags like:
+[DOMAIN: STORYTELLING], [DOMAIN: GAME_DEV], [DOMAIN: MUSIC_DEV],
+[DOMAIN: BOOK], [DOMAIN: LANGUAGE_LAB], [DOMAIN: CODING].
 
-DB_PATH = BASE_DIR / "bookworm.db"
+Respond clearly, structurally, and with AAA-level detail.
+"""
+
+# -----------------------------
+# DATABASE SETUP
+# -----------------------------
+
+DB_PATH = Path("bookworm.db")
+SCHEMA_PATH = Path("db/schema.sql")
 
 
-def get_db():
+def get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-# ---------------------------
-# Subscription / Owner logic
-# ---------------------------
-
-# Book Worm environment: "local" (default) or "prod"
-BOOKWORM_ENV = os.getenv("BOOKWORM_ENV", "local")
-
-
-def is_owner(request: Request) -> bool:
+def init_db() -> None:
     """
-    For now, in local mode you are ALWAYS treated as the owner.
-    In the future (prod deployment), you can change this to check headers, cookies, etc.
+    Initialize DB from db/schema.sql if present.
+    If the file or tables already exist, fail silently.
     """
-    if BOOKWORM_ENV == "local":
-        return True
-
-    # Example future logic (kept for extension):
-    owner_key_env = os.getenv("BOOKWORM_OWNER_KEY")
-    owner_key_req = request.headers.get("x-bookworm-owner-key")
-    if owner_key_env and owner_key_req and owner_key_req == owner_key_env:
-        return True
-
-    return False
-
-
-def get_request_plan(request: Request) -> str:
-    """
-    Very simple plan extraction from headers.
-    Front-end can send: X-Bookworm-Plan: basic|pro|patron
-    """
-    return request.headers.get("x-bookworm-plan", "none").lower()
-
-
-def enforce_subscription(request: Request) -> None:
-    """
-    Keep subscription scaffolding, but:
-    - In local mode OR if owner => no enforcement.
-    - In prod (future) => require a plan.
-    """
-    if is_owner(request):
-        # You are always owner in local env, so you never get blocked.
+    if not SCHEMA_PATH.exists():
+        # No schema file; just return. We'll handle missing tables at query time.
         return
 
-    plan = get_request_plan(request)
-    if plan in ("none", "", "free"):
-        # HTTP 402 = Payment Required
-        raise HTTPException(
-            status_code=402,
-            detail="Subscription required. Please choose a plan to continue.",
+    try:
+        conn = get_db()
+        with SCHEMA_PATH.open("r", encoding="utf-8") as f:
+            schema_sql = f.read()
+        conn.executescript(schema_sql)
+        conn.commit()
+    except Exception as e:
+        # Don't crash the app if schema fails; just print so we can debug.
+        print(f"[init_db] Error applying schema: {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def table_exists(table_name: str) -> bool:
+    """Check if a table exists in SQLite."""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
         )
+        row = cur.fetchone()
+        return row is not None
+    except Exception:
+        return False
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
-# ---------------------------
-# Pydantic models
-# ---------------------------
-
+# -----------------------------
+# Pydantic MODELS
+# -----------------------------
 
 class GenerateRequest(BaseModel):
     prompt: str
-    mode: str = "auto"  # 'auto', 'lore', 'world', 'character', etc.
-    depth: str = "deep"  # 'deep' or 'super_deep'
-    project_id: Optional[int] = 1  # default main project
-    domain: Optional[str] = None  # GAME_DEV / MUSIC_DEV / STORYTELLING, if front-end wants to send
+    mode: str = "auto"   # 'auto','lore','world','character','block','free','lyrics',...
+    depth: str = "deep"  # 'deep','super_deep'
+    project_id: Optional[int] = 1  # default to main project
 
 
 class GenerateResponse(BaseModel):
@@ -124,8 +121,8 @@ class GenerateResponse(BaseModel):
 
 class ImageRequest(BaseModel):
     prompt: str
-    size: str = "1024x1024"  # "1024x1024", "1024x1792", "1792x1024"
-    quality: str = "high"  # OpenAI: "low", "medium", "high", or "auto"
+    size: str = "1024x1024"        # or "1024x1792", "1792x1024"
+    quality: str = "high"          # 'low','medium','high','auto'
     n: int = 1
 
 
@@ -163,112 +160,117 @@ class Doc(BaseModel):
     source: Optional[str] = None
 
 
-# ---------------------------
-# Mode inference
-# ---------------------------
+# -----------------------------
+# MODE INFERENCE
+# -----------------------------
 
 def infer_mode_from_prompt(prompt: str) -> str:
-    """Very simple heuristic to guess what the user wants."""
+    """Simple heuristic to guess what the user wants."""
     text = prompt.lower()
 
     # Music / lyrics
-    if "lyrics" in text or "chorus" in text or "verse" in text or "hook" in text:
+    if any(w in text for w in ["lyrics", "chorus", "verse", "hook"]):
         return "lyrics"
-    if "beat" in text or "808" in text or "instrumental" in text or "ost" in text:
+    if any(w in text for w in ["beat", "808", "instrumental", "ost"]):
         return "instrumental_concept"
-    if (
-        "sound effect" in text
-        or "sfx" in text
-        or "ambience" in text
-        or "audio design" in text
-    ):
+    if any(w in text for w in ["sound effect", "sfx", "ambience", "audio design"]):
         return "audio_concept"
 
     # Characters
-    if "character sheet" in text or "character profile" in text:
+    if any(w in text for w in ["character sheet", "character profile"]):
         return "character"
-    if "backstory" in text or "origin story" in text:
+    if any(w in text for w in ["backstory", "origin story"]):
         return "character"
-    if "build me a character" in text or "design a character" in text:
+    if any(w in text for w in ["build me a character", "design a character"]):
         return "character"
 
-    # Worlds / realms / biomes / flora-fauna
-    if (
-        "realm" in text
-        or "continent" in text
-        or "planet" in text
-        or "world map" in text
-    ):
+    # Worlds / realms / flora-fauna
+    if any(w in text for w in ["realm", "continent", "planet", "world map"]):
         return "world"
-    if "biome" in text or "region" in text or "climate" in text:
+    if any(w in text for w in ["biome", "region", "climate"]):
         return "world"
-    if (
-        "flora" in text
-        or "fauna" in text
-        or "creature" in text
-        or "monster" in text
-        or "species" in text
-    ):
+    if any(w in text for w in ["flora", "fauna", "creature", "monster", "species"]):
         return "world"
-    if "culture" in text or "tribe" in text or "kingdom" in text or "empire" in text:
+    if any(w in text for w in ["culture", "tribe", "kingdom", "empire"]):
         return "world"
-    if "magic system" in text or "power system" in text or "tech system" in text:
+    if any(w in text for w in ["magic system", "power system", "tech system"]):
         return "world"
 
     # Lore / canon
-    if "lore" in text or "canon" in text or "timeline" in text:
+    if any(w in text for w in ["lore", "canon", "timeline"]):
         return "lore"
-    if "summarize my world" in text or "explain my world" in text:
+    if any(w in text for w in ["summarize my world", "explain my world"]):
         return "lore"
 
     # Scenes / blocks
-    if "rewrite this" in text or "fix this paragraph" in text or "edit this scene" in text:
+    if any(w in text for w in ["rewrite this", "fix this paragraph", "edit this scene"]):
         return "block"
-    if "write a scene" in text or "write a chapter" in text:
+    if any(w in text for w in ["write a scene", "write a chapter"]):
         return "block"
 
     # Default fallback
     return "free"
 
 
-# ---------------------------
-# FastAPI app setup
-# ---------------------------
+# -----------------------------
+# FASTAPI APP
+# -----------------------------
 
-app = FastAPI(title="Book Worm AI", version="0.1.0")
+app = FastAPI(title="Book Worm AI Backend", version="0.3.0")
 
-# CORS (open, since this is local)
+# CORS – allow your site + local dev
+origins = [
+    "http://localhost",
+    "http://localhost:5050",
+    "http://127.0.0.1:5050",
+    # add your Render frontend or GitHub Pages URL here if needed
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # you can tighten this later
+    allow_origins=origins + ["*"],  # you can tighten this later
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Static files (frontend)
-static_dir = BASE_DIR / "static"
+# Static files
+static_dir = Path("static")
 if static_dir.exists():
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
+@app.on_event("startup")
+def on_startup() -> None:
+    """Initialize DB on startup (Render & local)."""
+    init_db()
+
+
+# -----------------------------
+# ROUTES
+# -----------------------------
 
 @app.get("/", response_class=HTMLResponse)
-async def root():
+async def root() -> HTMLResponse:
+    """
+    Serve the SPA (index.html).
+    """
     index_path = static_dir / "index.html"
     if index_path.exists():
-        return FileResponse(str(index_path))
-    # Fallback minimal page
-    return HTMLResponse(
-        "<html><body><h1>Book Worm API</h1><p>static/index.html not found.</p></body></html>"
-    )
+        return HTMLResponse(index_path.read_text(encoding="utf-8"))
+    return HTMLResponse("<h1>Book Worm AI backend is running.</h1>", status_code=200)
 
 
-# ---------------------------
-# Projects & Docs endpoints
-# ---------------------------
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+# ---------- Projects / Docs (Canon) ----------
 
 @app.post("/projects", response_model=Project)
 def create_project(payload: ProjectCreate):
+    if not table_exists("projects"):
+        raise HTTPException(status_code=500, detail="Projects table not initialized.")
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
@@ -283,6 +285,9 @@ def create_project(payload: ProjectCreate):
 
 @app.get("/projects", response_model=List[Project])
 def list_projects():
+    if not table_exists("projects"):
+        # No projects yet
+        return []
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT id, name, description FROM projects ORDER BY created_at DESC")
@@ -296,8 +301,9 @@ def list_projects():
 
 @app.post("/docs", response_model=Doc)
 def create_doc(payload: DocCreate):
+    if not table_exists("docs"):
+        raise HTTPException(status_code=500, detail="Docs table not initialized.")
     tags_str = ",".join(payload.tags) if payload.tags else None
-
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
@@ -330,6 +336,8 @@ def create_doc(payload: DocCreate):
 
 @app.get("/docs", response_model=List[Doc])
 def list_docs(project_id: Optional[int] = None):
+    if not table_exists("docs"):
+        return []
     conn = get_db()
     cur = conn.cursor()
     if project_id is not None:
@@ -352,7 +360,6 @@ def list_docs(project_id: Optional[int] = None):
         )
     rows = cur.fetchall()
     conn.close()
-
     docs: List[Doc] = []
     for row in rows:
         tags = row["tags"].split(",") if row["tags"] else None
@@ -370,120 +377,56 @@ def list_docs(project_id: Optional[int] = None):
     return docs
 
 
-# ---------------------------
-# Image generation endpoint
-# ---------------------------
-
-@app.post("/generate_image", response_model=ImageResponse)
-async def generate_image(req: ImageRequest, request: Request):
-    """
-    Generate high-quality concept art or character/location images.
-    Uses GPT Image with quality values that OpenAI currently supports.
-    Any errors are returned as a string URL starting with 'ERROR:'.
-    """
-    # Enforce subscription only if not owner & not local (future)
-    try:
-        enforce_subscription(request)
-    except HTTPException as e:
-        # Don't crash the UI; surface error as pseudo-URL
-        return ImageResponse(urls=[f"Image error: {e.detail}"])
-
-    try:
-        result = client.images.generate(
-            model="gpt-image-1",
-            prompt=req.prompt,
-            size=req.size,
-            n=req.n,
-            quality=req.quality,  # must be "low","medium","high","auto"
-        )
-        urls: List[str] = []
-        for d in result.data:
-            # Some SDK versions use d.url; if None, just stringify
-            url = getattr(d, "url", None)
-            if url is None:
-                url = "ERROR: image data returned without URL"
-            urls.append(url)
-        if not urls:
-            urls = ["ERROR: no image URLs returned"]
-        return ImageResponse(urls=urls)
-    except Exception as e:
-        # Avoid breaking the front-end; return error string instead
-        return ImageResponse(urls=[f"Image error: {e}"])
-
-
-# ---------------------------
-# Core chat generation endpoint
-# ---------------------------
+# ---------- Core Chat / Generate ----------
 
 @app.post("/generate", response_model=GenerateResponse)
-async def generate(req: GenerateRequest, request: Request):
+async def generate(req: GenerateRequest):
     """
     Core generation endpoint.
 
     - prompt: what the user wants
-    - mode: 'auto','lore','world','character','block','free','lyrics',
-            'instrumental_concept','audio_concept'
+    - mode: 'auto','lore','world','character','block','free',
+            'lyrics','instrumental_concept','audio_concept'
     - depth: 'deep' or 'super_deep'
-    - project_id: which canon project to pull from (default 1)
-    - domain: optional high-level domain (GAME_DEV, MUSIC_DEV, STORYTELLING)
     """
-    # Subscription enforcement (no-op for you as owner in local env)
-    try:
-        enforce_subscription(request)
-    except HTTPException as e:
-        # Return as normal message so UI doesn't show "Backend error"
-        return GenerateResponse(
-            response=(
-                "⚠ Subscription error in Book Worm.\n\n"
-                f"Details: {e.detail}"
-            )
-        )
-
     # Resolve mode if 'auto'
     if req.mode == "auto":
         resolved_mode = infer_mode_from_prompt(req.prompt)
     else:
         resolved_mode = req.mode
 
-    # Optional domain/tag, e.g. [DOMAIN: GAME_DEV]
-    domain_prefix = ""
-    if req.domain:
-        domain_prefix = f"[DOMAIN: {req.domain}]\n\n"
+    # Pull canon docs for this project, if the docs table exists
+    canon_text = ""
+    if req.project_id is not None and table_exists("docs"):
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT title, body
+                FROM docs
+                WHERE project_id = ?
+                ORDER BY created_at DESC
+                LIMIT 5
+                """,
+                (req.project_id,),
+            )
+            rows = cur.fetchall()
+            conn.close()
+            parts = []
+            for row in rows:
+                parts.append(f"# {row['title']}\n{row['body']}")
+            canon_text = "\n\n".join(parts)
+            if len(canon_text) > 4000:
+                canon_text = canon_text[:4000] + "\n\n...[canon truncated]..."
+        except Exception as e:
+            print(f"[generate] Error loading canon: {e}")
+            canon_text = ""
 
     mode_line = f"Mode: {resolved_mode}"
     depth_line = f"Depth: {req.depth}"
 
-    user_content = (
-        f"{domain_prefix}{mode_line}\n{depth_line}\n\nUser prompt:\n{req.prompt}"
-    )
-
-    # Pull some canon for this project, if specified
-    canon_text = ""
-    if req.project_id is not None:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT title, body
-            FROM docs
-            WHERE project_id = ?
-            ORDER BY created_at DESC
-            LIMIT 10
-            """,
-            (req.project_id,),
-        )
-        rows = cur.fetchall()
-        conn.close()
-
-        parts: List[str] = []
-        for row in rows:
-            parts.append(f"# {row['title']}\n{row['body']}")
-        canon_text = "\n\n".join(parts)
-
-        # Soft limit to keep context manageable
-        max_chars = 8000
-        if len(canon_text) > max_chars:
-            canon_text = canon_text[:max_chars] + "\n\n...[canon truncated]..."
+    user_content = f"{mode_line}\n{depth_line}\n\nUser prompt:\n{req.prompt}"
 
     try:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -510,7 +453,7 @@ async def generate(req: GenerateRequest, request: Request):
         answer = completion.choices[0].message.content or ""
         return GenerateResponse(response=answer)
     except Exception as e:
-        # Don't crash with 500; show a friendly error in the chat window
+        # Return a friendly error instead of 500
         return GenerateResponse(
             response=(
                 "⚠ Book Worm hit an error talking to OpenAI.\n\n"
@@ -518,3 +461,34 @@ async def generate(req: GenerateRequest, request: Request):
                 f"Details: {e}"
             )
         )
+
+
+# ---------- Image Generation ----------
+
+@app.post("/generate_image", response_model=ImageResponse)
+async def generate_image(req: ImageRequest):
+    """
+    Generate high-quality concept art or character/location images.
+    Uses GPT Image (or your configured image model) via OpenAI.
+    """
+    try:
+        result = client.images.generate(
+            model="gpt-image-1",
+            prompt=req.prompt,
+            size=req.size,
+            n=req.n,
+            quality=req.quality,  # 'low','medium','high','auto'
+        )
+        urls: List[str] = []
+        for d in result.data:
+            # some clients use d.url, others d["url"]
+            url = getattr(d, "url", None)
+            if not url and isinstance(d, dict):
+                url = d.get("url")
+            if url:
+                urls.append(url)
+        if not urls:
+            urls = ["ERROR: No URL returned from image API."]
+        return ImageResponse(urls=urls)
+    except Exception as e:
+        return ImageResponse(urls=[f"ERROR: Image error: {e}"])
