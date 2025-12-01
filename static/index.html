@@ -659,12 +659,32 @@
         <div id="panel-SETTINGS" class="pane-section">
           <div class="pane-header">
             <h2>Settings</h2>
-            <span>Owner & depth controls</span>
+            <span>Owner, depth & projects</span>
           </div>
 
           <div class="hint">
             You are treated as the <strong>Owner</strong> in local dev.
             Backend may also check an <code>owner.json</code> flag.
+          </div>
+
+          <div>
+            <label for="project-id-input">Active Project ID</label>
+            <div class="slider-row">
+              <input
+                type="number"
+                id="project-id-input"
+                min="1"
+                value="1"
+                style="max-width:80px;"
+              />
+              <button id="project-id-apply" class="small-btn" type="button">
+                Set
+              </button>
+            </div>
+            <div class="hint">
+              Use different project IDs to isolate universes.<br />
+              Example: 1 = Nythos, 2 = Space Horror, 3 = New IP, etc.
+            </div>
           </div>
 
           <label>Depth mode</label>
@@ -681,7 +701,8 @@
             <span class="badge">Info</span>
             <span class="hint">
               All tabs share the same Book Worm brain, but their
-              context and memories are isolated per tab session.
+              chat histories are separate per tab. Canon isolation
+              comes from using different project IDs.
             </span>
           </div>
         </div>
@@ -777,8 +798,9 @@
       SETTINGS: [],
     };
 
-    // Depth mode
+    // Depth mode + current project
     let depthMode = "deep"; // "fast" | "deep" | "super_deep"
+    let currentProjectId = 1;
 
     // Voice settings
     let voices = [];
@@ -805,6 +827,9 @@
     const depthFastBtn = document.getElementById("depth-fast");
     const depthDeepBtn = document.getElementById("depth-deep");
     const depthSuperBtn = document.getElementById("depth-super");
+
+    const projectIdInput = document.getElementById("project-id-input");
+    const projectIdApply = document.getElementById("project-id-apply");
 
     // -----------------------------
     // Helpers
@@ -950,7 +975,7 @@
             "Voice Lab active. Adjust voice, rate, pitch, and auto-speak for assistant replies.";
         } else if (tab === "SETTINGS") {
           hintText =
-            "Settings active. Adjust depth mode and review owner info.";
+            "Settings active. Adjust project ID, depth mode, and review owner info.";
         }
 
         if (hintText) {
@@ -965,6 +990,27 @@
         if (!tab) return;
         setActiveTab(tab);
       });
+    });
+
+    // -----------------------------
+    // Project switching
+    // -----------------------------
+    projectIdApply.addEventListener("click", () => {
+      const val = parseInt(projectIdInput.value, 10);
+      if (!isNaN(val) && val > 0) {
+        currentProjectId = val;
+        appendMessage(
+          "SETTINGS",
+          "assistant",
+          `Active project ID set to ${val}. All tabs now use this project's canon on the backend.`
+        );
+      } else {
+        appendMessage(
+          "SETTINGS",
+          "assistant",
+          "Project ID must be a positive number (1, 2, 3, ...)."
+        );
+      }
     });
 
     // -----------------------------
@@ -992,7 +1038,7 @@
         prompt: promptWithDomain,
         mode: "auto",
         depth: depth,
-        project_id: 1,
+        project_id: currentProjectId,
       };
 
       try {
