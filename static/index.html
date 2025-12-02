@@ -1,1259 +1,194 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Book Worm AI</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <style>
-    :root {
-      --bg: #05060a;
-      --bg-alt: #090c12;
-      --panel: #0f131c;
-      --accent: #6be6ff;
-      --accent-soft: rgba(107, 230, 255, 0.2);
-      --accent-strong: #ff6bd5;
-      --text: #e8edf7;
-      --text-soft: #9aa4bf;
-      --danger: #ff4b6e;
-      --border: #1c2230;
-      --radius-lg: 16px;
-      --radius-md: 10px;
-      --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.55);
-      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      padding: 0;
-      background: radial-gradient(circle at top, #172034 0, #05060a 55%, #000 100%);
-      color: var(--text);
-      font-family: var(--font-sans);
-      min-height: 100vh;
-      display: flex;
-      align-items: stretch;
-      justify-content: center;
-    }
-
-    #app {
-      width: 100%;
-      max-width: 1200px;
-      margin: 16px;
-      background: linear-gradient(135deg, #060712 0, #05060a 40%, #020308 100%);
-      border-radius: 24px;
-      box-shadow: var(--shadow-soft);
-      border: 1px solid rgba(107, 230, 255, 0.15);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 18px;
-      border-bottom: 1px solid var(--border);
-      background: radial-gradient(circle at top left, rgba(107, 230, 255, 0.15), transparent 55%);
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .brand-logo {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 30% 20%, #6be6ff, #ff6bd5 40%, #171c2d 100%);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      font-weight: 800;
-      color: #05060a;
-      box-shadow: 0 0 16px rgba(107, 230, 255, 0.45);
-    }
-
-    .brand-text {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .brand-text h1 {
-      margin: 0;
-      font-size: 18px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    .brand-text span {
-      font-size: 11px;
-      color: var(--text-soft);
-    }
-
-    .top-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 11px;
-      color: var(--text-soft);
-    }
-
-    .pill {
-      padding: 4px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(107, 230, 255, 0.4);
-      background: rgba(5, 8, 16, 0.9);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .pill span.dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: #38f58c;
-      box-shadow: 0 0 10px rgba(56, 245, 140, 0.9);
-    }
-
-    main {
-      display: flex;
-      flex: 1;
-      min-height: 0;
-    }
-
-    /* Left side: Tabs + Chat */
-    .left-pane {
-      flex: 2.2;
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid var(--border);
-      min-width: 0;
-    }
-
-    .tab-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(3, 6, 12, 0.9);
-      backdrop-filter: blur(14px);
-    }
-
-    .tab-btn {
-      border: 1px solid rgba(107, 230, 255, 0.15);
-      background: radial-gradient(circle at top left, rgba(107, 230, 255, 0.05), #05060a 70%);
-      color: var(--text-soft);
-      border-radius: 999px;
-      padding: 6px 12px;
-      font-size: 11px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .tab-btn.active {
-      border-color: var(--accent);
-      color: var(--accent);
-      box-shadow: 0 0 12px rgba(107, 230, 255, 0.5);
-      background: radial-gradient(circle at top, rgba(107, 230, 255, 0.2), #060814 70%);
-    }
-
-    .tab-btn svg {
-      width: 14px;
-      height: 14px;
-    }
-
-    .chat-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 10px 14px 12px;
-      min-height: 0;
-    }
-
-    .chat-log {
-      flex: 1;
-      background: radial-gradient(circle at top, rgba(107, 230, 255, 0.05), #060814 60%, #020308 100%);
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--border);
-      padding: 10px 12px;
-      overflow-y: auto;
-      scroll-behavior: smooth;
-    }
-
-    .msg {
-      margin-bottom: 10px;
-      font-size: 13px;
-      line-height: 1.4;
-    }
-
-    .msg-header {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 2px;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .msg-header span.role {
-      padding: 2px 7px;
-      border-radius: 999px;
-      border: 1px solid rgba(107, 230, 255, 0.4);
-    }
-
-    .msg-header span.role.user {
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .msg-body {
-      padding: 7px 9px;
-      border-radius: var(--radius-md);
-      background: rgba(3, 6, 14, 0.9);
-      border: 1px solid rgba(255, 255, 255, 0.02);
-    }
-
-    .msg.assistant .msg-body {
-      background: linear-gradient(145deg, #050814, #070918);
-      border-color: rgba(107, 230, 255, 0.45);
-      box-shadow: 0 0 10px rgba(107, 230, 255, 0.15);
-    }
-
-    .chat-input-row {
-      margin-top: 8px;
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-    }
-
-    .chat-input-row textarea {
-      flex: 1;
-      resize: none;
-      min-height: 46px;
-      max-height: 120px;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border);
-      background: rgba(5, 8, 16, 0.95);
-      color: var(--text);
-      padding: 8px 10px;
-      font-family: var(--font-sans);
-      font-size: 13px;
-      outline: none;
-    }
-
-    .chat-input-row textarea:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 12px rgba(107, 230, 255, 0.4);
-    }
-
-    .send-btn {
-      border-radius: var(--radius-md);
-      border: none;
-      padding: 9px 14px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-      color: #05060a;
-      font-weight: 600;
-      font-size: 13px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      box-shadow: 0 10px 20px rgba(107, 230, 255, 0.35);
-    }
-
-    .send-btn:disabled {
-      opacity: 0.5;
-      cursor: default;
-      box-shadow: none;
-    }
-
-    /* Right pane: Labs & Settings */
-    .right-pane {
-      flex: 1.4;
-      display: flex;
-      flex-direction: column;
-      background: radial-gradient(circle at top, rgba(107, 230, 255, 0.1), #040712 60%);
-      padding: 10px 12px;
-      gap: 8px;
-      min-width: 260px;
-    }
-
-    .pane-section {
-      background: var(--panel);
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--border);
-      padding: 10px 12px;
-      box-shadow: 0 12px 22px rgba(0, 0, 0, 0.4);
-      min-height: 0;
-      display: none;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .pane-section.active {
-      display: flex;
-    }
-
-    .pane-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 4px;
-    }
-
-    .pane-header h2 {
-      margin: 0;
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--accent);
-    }
-
-    .pane-header span {
-      font-size: 11px;
-      color: var(--text-soft);
-    }
-
-    label {
-      font-size: 11px;
-      color: var(--text-soft);
-      margin-bottom: 2px;
-      display: inline-block;
-    }
-
-    input[type="text"],
-    input[type="number"],
-    select,
-    textarea.settings-input {
-      width: 100%;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border);
-      background: rgba(6, 9, 18, 0.95);
-      color: var(--text);
-      padding: 6px 8px;
-      font-size: 12px;
-      font-family: var(--font-sans);
-      outline: none;
-    }
-
-    input[type="text"]:focus,
-    input[type="number"]:focus,
-    select:focus,
-    textarea.settings-input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 10px rgba(107, 230, 255, 0.3);
-    }
-
-    textarea.settings-input {
-      min-height: 60px;
-      resize: vertical;
-    }
-
-    .slider-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .slider-row input[type="range"] {
-      flex: 1;
-    }
-
-    .slider-value {
-      width: 32px;
-      text-align: right;
-      font-size: 11px;
-      color: var(--text-soft);
-    }
-
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 12px;
-    }
-
-    .toggle-row input {
-      margin-left: 10px;
-    }
-
-    .small-btn {
-      border-radius: 999px;
-      border: 1px solid rgba(107, 230, 255, 0.4);
-      background: rgba(4, 7, 14, 0.95);
-      color: var(--text);
-      font-size: 11px;
-      padding: 4px 10px;
-      cursor: pointer;
-    }
-
-    .small-btn.danger {
-      border-color: var(--danger);
-      color: var(--danger);
-    }
-
-    .hint {
-      font-size: 11px;
-      color: var(--text-soft);
-      line-height: 1.4;
-    }
-
-    .pill-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 7px;
-      border-radius: 999px;
-      border: 1px solid rgba(107, 230, 255, 0.4);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--accent);
-    }
-
-    .error-banner {
-      display: none;
-      margin: 6px 12px 0;
-      padding: 6px 8px;
-      background: rgba(255, 75, 110, 0.08);
-      border: 1px solid rgba(255, 75, 110, 0.5);
-      border-radius: 10px;
-      font-size: 11px;
-      color: #ffc7d3;
-    }
-
-    .error-banner.visible {
-      display: block;
-    }
-
-    .badge {
-      padding: 2px 6px;
-      border-radius: 999px;
-      background: rgba(107, 230, 255, 0.12);
-      border: 1px solid rgba(107, 230, 255, 0.4);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--accent);
-    }
-
-    @media (max-width: 900px) {
-      #app {
-        margin: 8px;
-      }
-      main {
-        flex-direction: column;
-      }
-      .left-pane {
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-      }
-      .right-pane {
-        min-height: 260px;
-      }
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <title>Book Worm AI</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/script.js" defer></script>
 </head>
+
 <body>
-  <div id="app">
-    <header>
-      <div class="brand">
-        <div class="brand-logo">BW</div>
-        <div class="brand-text">
-          <h1>Book Worm AI</h1>
-          <span>AAA Story · Game Dev · Music · Languages</span>
+<div id="app">
+    <header id="top-header">
+        <div class="brand">
+            <img src="/static/bookworm-192.png" class="logo" alt="Book Worm AI logo" />
+            <div class="brand-text">
+                <h1>Book Worm AI</h1>
+                <p class="tagline">AAA Storytelling · Game Dev · Music · Language Lab</p>
+            </div>
         </div>
-      </div>
-      <div class="top-right">
-        <div class="pill">
-          <span class="dot"></span>
-          <span id="owner-label">Owner: Local Dev</span>
+        <div class="owner-status">
+            <span id="owner-badge">Guest Mode</span>
         </div>
-      </div>
     </header>
 
-    <main>
-      <!-- LEFT: TABS + CHAT -->
-      <section class="left-pane">
-        <div class="tab-row">
-          <button class="tab-btn active" data-tab="STORYTELLING">
-            🪶 Storytelling
-          </button>
-          <button class="tab-btn" data-tab="GAME_DEV">
-            🎮 Game Dev
-          </button>
-          <button class="tab-btn" data-tab="MUSIC_DEV">
-            🎵 Music Dev
-          </button>
-          <button class="tab-btn" data-tab="BOOK_WRITING">
-            📚 Book Writing
-          </button>
-          <button class="tab-btn" data-tab="CODING">
-            🧩 Coding
-          </button>
-          <button class="tab-btn" data-tab="LANGUAGE_LAB">
-            🔡 Language Lab
-          </button>
-          <button class="tab-btn" data-tab="IMAGE_LAB">
-            🖼️ Image Lab
-          </button>
-          <button class="tab-btn" data-tab="VOICE_LAB">
-            🎙️ Voice Lab
-          </button>
-          <button class="tab-btn" data-tab="SETTINGS">
-            ⚙️ Settings
-          </button>
-        </div>
+    <nav id="tab-bar">
+        <button data-tab="chat" class="active">Chat</button>
+        <button data-tab="book">Book Writing</button>
+        <button data-tab="game">Game Dev</button>
+        <button data-tab="language">Language Lab</button>
+        <button data-tab="music">Music / Audio</button>
+        <button data-tab="projects">Projects</button>
+        <button data-tab="owner">Admin</button>
+        <button data-tab="analytics">Analytics</button>
+    </nav>
 
-        <div id="error-banner" class="error-banner"></div>
-
-        <div class="chat-container">
-          <div id="chat-log" class="chat-log"></div>
-
-          <form id="chat-form" class="chat-input-row">
-            <textarea
-              id="chat-input"
-              placeholder="Talk to Book Worm in the current tab context..."
-            ></textarea>
-            <button id="send-btn" class="send-btn" type="submit">
-              <span>Send</span> ➤
-            </button>
-          </form>
-        </div>
-      </section>
-
-      <!-- RIGHT: PANELS -->
-      <section class="right-pane">
-        <!-- Voice Lab Panel -->
-        <div id="panel-VOICE_LAB" class="pane-section active">
-          <div class="pane-header">
-            <h2>Voice Lab</h2>
-            <span>Fine-tune her voice & auto-speak</span>
-          </div>
-          <div class="hint">
-            Configure how Book Worm speaks your responses.
-            Auto-speak affects all assistant replies across tabs.
-          </div>
-
-          <div>
-            <label for="voice-select">Voice preset</label>
-            <select id="voice-select"></select>
-            <div class="hint">
-              Your browser controls the actual available voices.
-              Pick the one closest to your "Bastila-style" tone.
+    <main id="main-panels">
+        <!-- CHAT TAB -->
+        <section id="chat" class="tab active">
+            <h2>Chat / Lore / Free Exploration</h2>
+            <p class="tab-hint">
+                General conversation, lore help, ideas, and mixed tasks.
+            </p>
+            <textarea id="chat-input" class="input-area" placeholder="Ask anything..."></textarea>
+            <div class="controls-row">
+                <select id="chat-depth">
+                    <option value="deep" selected>Deep</option>
+                    <option value="super_deep">Super Deep</option>
+                </select>
+                <button onclick="sendChat()">Generate</button>
             </div>
-          </div>
+            <div id="chat-output" class="output-area"></div>
+        </section>
 
-          <div>
-            <label>Rate &amp; Pitch</label>
-            <div class="slider-row">
-              <span class="pill-tag">Rate</span>
-              <input type="range" id="voice-rate" min="0.5" max="2" step="0.05" value="1.02" />
-              <span id="voice-rate-value" class="slider-value">1.02</span>
+        <!-- BOOK WRITING TAB -->
+        <section id="book" class="tab">
+            <h2>Book Writing Suite</h2>
+            <p class="tab-hint">
+                Long-form narrative, chapters, scenes, and structural planning.
+            </p>
+            <textarea id="book-input" class="input-area" placeholder="Describe what you want to write next..."></textarea>
+            <div class="controls-row">
+                <select id="book-depth">
+                    <option value="deep" selected>Deep</option>
+                    <option value="super_deep">Super Deep</option>
+                </select>
+                <button onclick="sendBook()">Generate</button>
             </div>
-            <div class="slider-row">
-              <span class="pill-tag">Pitch</span>
-              <input type="range" id="voice-pitch" min="0" max="2" step="0.05" value="1.15" />
-              <span id="voice-pitch-value" class="slider-value">1.15</span>
+            <div id="book-output" class="output-area"></div>
+        </section>
+
+        <!-- GAME DEV TAB -->
+        <section id="game" class="tab">
+            <h2>Game Development Lab</h2>
+            <p class="tab-hint">
+                AAA systems, levels, bosses, mechanics, progression, combat, and more.
+            </p>
+            <textarea id="game-input" class="input-area" placeholder="Describe the system, boss, or level you want to design..."></textarea>
+            <div class="controls-row">
+                <select id="game-depth">
+                    <option value="deep" selected>Deep</option>
+                    <option value="super_deep">Super Deep</option>
+                </select>
+                <button onclick="sendGame()">Generate</button>
             </div>
-          </div>
+            <div id="game-output" class="output-area"></div>
+        </section>
 
-          <div class="toggle-row">
-            <span>Auto-speak assistant replies</span>
-            <label>
-              <input type="checkbox" id="auto-speak-toggle" checked />
-              Enable
-            </label>
-          </div>
-
-          <div>
-            <label for="voice-sample-text">Sample text</label>
-            <textarea
-              id="voice-sample-text"
-              class="settings-input"
-            >This is Book Worm, your AAA storytelling and game development partner. How may I assist you?</textarea>
-            <button id="voice-sample-btn" class="small-btn" type="button">
-              ▶ Speak Sample
-            </button>
-          </div>
-        </div>
-
-        <!-- Language Lab Panel -->
-        <div id="panel-LANGUAGE_LAB" class="pane-section">
-          <div class="pane-header">
+        <!-- LANGUAGE LAB TAB -->
+        <section id="language" class="tab">
             <h2>Language Lab</h2>
-            <span>Custom conlangs for your worlds</span>
-          </div>
-          <div class="hint">
-            Use the chat to design alphabets, phonetics, grammar, and scripts.
-            Describe the vibe (ancient, fluid, harsh, melodic) and Book Worm
-            will generate full language structures.
-          </div>
-          <div class="hint">
-            Tip: in this tab, she assumes you're working on languages, naming,
-            and written systems for your stories and games.
-          </div>
-        </div>
-
-        <!-- Image Lab Panel -->
-        <div id="panel-IMAGE_LAB" class="pane-section">
-          <div class="pane-header">
-            <h2>Image Lab</h2>
-            <span>AAA concept art helper</span>
-          </div>
-          <div class="hint">
-            Use the chat in any tab to refine your image ideas, then paste
-            a final prompt here to call your <code>/generate_image</code> backend.
-          </div>
-
-          <label for="image-prompt">Image prompt</label>
-          <textarea
-            id="image-prompt"
-            class="settings-input"
-            placeholder="Cinematic concept art of..."
-          ></textarea>
-
-          <div class="slider-row">
-            <span class="pill-tag">Size</span>
-            <select id="image-size">
-              <option value="1024x1024">1024 × 1024</option>
-              <option value="1024x1792">1024 × 1792 (portrait)</option>
-              <option value="1792x1024">1792 × 1024 (landscape)</option>
-            </select>
-          </div>
-
-          <div class="slider-row">
-            <span class="pill-tag">Quality</span>
-            <select id="image-quality">
-              <option value="high" selected>High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-              <option value="auto">Auto</option>
-            </select>
-          </div>
-
-          <button id="image-generate-btn" class="small-btn" type="button">
-            ⚡ Generate Image
-          </button>
-
-          <div id="image-results" class="hint" style="margin-top:6px;"></div>
-        </div>
-
-        <!-- Settings Panel -->
-        <div id="panel-SETTINGS" class="pane-section">
-          <div class="pane-header">
-            <h2>Settings</h2>
-            <span>Owner, depth & projects</span>
-          </div>
-
-          <div class="hint">
-            You are treated as the <strong>Owner</strong> in local dev.
-            Backend may also check an <code>owner.json</code> flag.
-          </div>
-
-          <div>
-            <label for="project-id-input">Active Project ID</label>
-            <div class="slider-row">
-              <input
-                type="number"
-                id="project-id-input"
-                min="1"
-                value="1"
-                style="max-width:80px;"
-              />
-              <button id="project-id-apply" class="small-btn" type="button">
-                Set
-              </button>
+            <p class="tab-hint">
+                Build visual + spoken languages: alphabets, phonetics, grammar, phrases.
+            </p>
+            <textarea id="language-input" class="input-area" placeholder="Explain the vibe of the language you want to create..."></textarea>
+            <div class="controls-row">
+                <select id="language-depth">
+                    <option value="deep" selected>Deep</option>
+                    <option value="super_deep">Super Deep</option>
+                </select>
+                <button onclick="sendLanguage()">Generate</button>
             </div>
-            <div class="hint">
-              Use different project IDs to isolate universes.<br />
-              Example: 1 = Nythos, 2 = Space Horror, 3 = New IP, etc.
+            <div id="language-output" class="output-area"></div>
+        </section>
+
+        <!-- MUSIC / AUDIO TAB -->
+        <section id="music" class="tab">
+            <h2>Music / Audio Lab</h2>
+            <p class="tab-hint">
+                Lyrics, OST concepts, ambience, SFX directions, and vocal ideas.
+            </p>
+            <textarea id="music-input" class="input-area" placeholder="Describe the track, mood, or SFX you want..."></textarea>
+            <div class="controls-row">
+                <select id="music-depth">
+                    <option value="deep" selected>Deep</option>
+                    <option value="super_deep">Super Deep</option>
+                </select>
+                <button onclick="sendMusic()">Generate</button>
             </div>
-          </div>
+            <div id="music-output" class="output-area"></div>
+        </section>
 
-          <label>Depth mode</label>
-          <div class="slider-row">
-            <button id="depth-fast" class="small-btn" type="button">Fast</button>
-            <button id="depth-deep" class="small-btn" type="button">Deep</button>
-            <button id="depth-super" class="small-btn" type="button">Super Deep</button>
-          </div>
-          <div class="hint">
-            Fast = concise. Deep = thorough (default). Super Deep = long design-doc style.
-          </div>
+        <!-- PROJECTS TAB -->
+        <section id="projects" class="tab">
+            <h2>Projects</h2>
+            <p class="tab-hint">
+                Manage separate universes: each with its own canon, vectors, and labs.
+            </p>
+            <div id="project-controls">
+                <input id="project-name" placeholder="New project name..." />
+                <input id="project-desc" placeholder="Short description..." />
+                <button onclick="createProject()">Create Project</button>
+            </div>
+            <div id="project-list" class="output-area"></div>
+        </section>
 
-          <div style="margin-top:6px;">
-            <span class="badge">Info</span>
-            <span class="hint">
-              All tabs share the same Book Worm brain, but their
-              chat histories are separate per tab. Canon isolation
-              comes from using different project IDs.
-            </span>
-          </div>
-        </div>
+        <!-- ADMIN TAB -->
+        <section id="owner" class="tab">
+            <h2>Admin Mode</h2>
+            <p class="tab-hint">
+                Owner tools, no limits. Enter your owner code once to unlock everything.
+            </p>
 
-        <!-- STORYTELLING Panel -->
-        <div id="panel-STORYTELLING" class="pane-section">
-          <div class="pane-header">
-            <h2>Storytelling</h2>
-            <span>Worldbuilding & lore focus</span>
-          </div>
-          <div class="hint">
-            In this tab, Book Worm assumes you are focused on:
-            realms, races, cultures, flora, fauna, cosmology, and story arcs.
-          </div>
-        </div>
+            <div id="owner-auth-box">
+                <input id="owner-code-input" type="password" placeholder="Enter owner code..." />
+                <button onclick="setOwnerCode()">Unlock Admin</button>
+            </div>
 
-        <!-- GAME DEV Panel -->
-        <div id="panel-GAME_DEV" class="pane-section">
-          <div class="pane-header">
-            <h2>Game Dev</h2>
-            <span>AAA systems, mechanics & encounters</span>
-          </div>
-          <div class="hint">
-            Here she behaves like a lead game designer: combat, bosses,
-            progression, modes, and UE-style systems.
-          </div>
-        </div>
+            <div id="owner-output" class="output-area"></div>
+        </section>
 
-        <!-- MUSIC DEV Panel -->
-        <div id="panel-MUSIC_DEV" class="pane-section">
-          <div class="pane-header">
-            <h2>Music Dev</h2>
-            <span>Lyrics, beats, OST & soundscapes</span>
-          </div>
-          <div class="hint">
-            Use this tab for vocal lyrics, soundtrack concepts, SFX moods,
-            and audio direction. Voice Lab can help you prototype delivery.
-          </div>
-        </div>
+        <!-- ANALYTICS TAB -->
+        <section id="analytics" class="tab">
+            <h2>Analytics Dashboard</h2>
+            <p class="tab-hint">
+                Live overview of generations, errors, and usage over time.
+            </p>
 
-        <!-- BOOK WRITING Panel -->
-        <div id="panel-BOOK_WRITING" class="pane-section">
-          <div class="pane-header">
-            <h2>Book Writing</h2>
-            <span>Chapters, scenes & structure</span>
-          </div>
-          <div class="hint">
-            This tab assumes you're working directly on book chapters,
-            POV scenes, pacing, revisions, and prose polish.
-          </div>
-        </div>
+            <div class="analytics-grid">
+                <!-- Summary card -->
+                <div class="analytics-card">
+                    <h3>Summary</h3>
+                    <button onclick="loadAnalyticsSummary()">Refresh Summary</button>
+                    <div id="analytics-summary" class="analytics-summary-body">
+                        <p>Loading...</p>
+                    </div>
+                </div>
 
-        <!-- CODING Panel -->
-        <div id="panel-CODING" class="pane-section">
-          <div class="pane-header">
-            <h2>Coding</h2>
-            <span>Tools, scripts & engine help</span>
-          </div>
-          <div class="hint">
-            Use this tab for Python, Unreal, gameplay systems, AI tools,
-            and Book Worm's own future upgrades.
-          </div>
-        </div>
-      </section>
+                <!-- Charts card -->
+                <div class="analytics-card">
+                    <h3>Events by Type</h3>
+                    <canvas id="eventsByTypeChart" width="400" height="240"></canvas>
+                </div>
+
+                <div class="analytics-card">
+                    <h3>Last 24h Activity</h3>
+                    <canvas id="eventsTimelineChart" width="400" height="240"></canvas>
+                </div>
+            </div>
+
+            <div class="analytics-card wide">
+                <div class="analytics-header-row">
+                    <h3>Recent Events</h3>
+                    <button onclick="loadRecentEvents()">Refresh Events</button>
+                </div>
+                <div id="analytics-events" class="analytics-events-body">
+                    <p>Loading...</p>
+                </div>
+            </div>
+        </section>
     </main>
-  </div>
-
-  <script>
-    // -----------------------------
-    // Global state
-    // -----------------------------
-    const chatLogEl = document.getElementById("chat-log");
-    const chatForm = document.getElementById("chat-form");
-    const chatInput = document.getElementById("chat-input");
-    const sendBtn = document.getElementById("send-btn");
-    const errorBanner = document.getElementById("error-banner");
-
-    const tabButtons = document.querySelectorAll(".tab-btn");
-    const paneSections = document.querySelectorAll(".pane-section");
-
-    let activeTab = "STORYTELLING";
-
-    // Per-tab chat sessions: each is an array of {role, text, ts}
-    const sessions = {
-      STORYTELLING: [],
-      GAME_DEV: [],
-      MUSIC_DEV: [],
-      BOOK_WRITING: [],
-      CODING: [],
-      LANGUAGE_LAB: [],
-      IMAGE_LAB: [],
-      VOICE_LAB: [],
-      SETTINGS: [],
-    };
-
-    // Depth mode + current project
-    let depthMode = "deep"; // "fast" | "deep" | "super_deep"
-    let currentProjectId = 1;
-
-    // Voice settings
-    let voices = [];
-    let selectedVoice = null;
-    let autoSpeakEnabled = true;
-    let voiceRate = 1.02;
-    let voicePitch = 1.15;
-
-    const voiceSelect = document.getElementById("voice-select");
-    const rateSlider = document.getElementById("voice-rate");
-    const pitchSlider = document.getElementById("voice-pitch");
-    const rateValue = document.getElementById("voice-rate-value");
-    const pitchValue = document.getElementById("voice-pitch-value");
-    const autoSpeakToggle = document.getElementById("auto-speak-toggle");
-    const sampleTextEl = document.getElementById("voice-sample-text");
-    const sampleBtn = document.getElementById("voice-sample-btn");
-
-    const imagePromptEl = document.getElementById("image-prompt");
-    const imageSizeEl = document.getElementById("image-size");
-    const imageQualityEl = document.getElementById("image-quality");
-    const imageGenerateBtn = document.getElementById("image-generate-btn");
-    const imageResultsEl = document.getElementById("image-results");
-
-    const depthFastBtn = document.getElementById("depth-fast");
-    const depthDeepBtn = document.getElementById("depth-deep");
-    const depthSuperBtn = document.getElementById("depth-super");
-
-    const projectIdInput = document.getElementById("project-id-input");
-    const projectIdApply = document.getElementById("project-id-apply");
-
-    // -----------------------------
-    // Helpers
-    // -----------------------------
-    function setError(message) {
-      if (!message) {
-        errorBanner.classList.remove("visible");
-        errorBanner.textContent = "";
-        return;
-      }
-      errorBanner.textContent = "⚠ " + message;
-      errorBanner.classList.add("visible");
-    }
-
-    function appendMessage(tab, role, text) {
-      const session = sessions[tab] || [];
-      const msg = { role, text, ts: Date.now() };
-      session.push(msg);
-      sessions[tab] = session;
-
-      if (tab === activeTab) {
-        renderChatForTab(activeTab);
-      }
-
-      if (role === "assistant" && autoSpeakEnabled && text.trim()) {
-        speakText(text);
-      }
-    }
-
-    function renderChatForTab(tab) {
-      const session = sessions[tab] || [];
-      chatLogEl.innerHTML = "";
-      session.forEach((msg) => {
-        const div = document.createElement("div");
-        div.className = "msg " + msg.role;
-
-        const header = document.createElement("div");
-        header.className = "msg-header";
-
-        const roleSpan = document.createElement("span");
-        roleSpan.className = "role " + msg.role;
-        roleSpan.textContent = msg.role === "user" ? "You" : "Book Worm";
-
-        const tabSpan = document.createElement("span");
-        tabSpan.className = "badge";
-        tabSpan.textContent = tab.replace("_", " ");
-
-        header.appendChild(roleSpan);
-        header.appendChild(tabSpan);
-
-        const body = document.createElement("div");
-        body.className = "msg-body";
-        body.textContent = msg.text;
-
-        div.appendChild(header);
-        div.appendChild(body);
-        chatLogEl.appendChild(div);
-      });
-      chatLogEl.scrollTop = chatLogEl.scrollHeight;
-    }
-
-    function getDomainForTab(tab) {
-      switch (tab) {
-        case "STORYTELLING":
-          return "STORYTELLING";
-        case "GAME_DEV":
-          return "GAME_DEV";
-        case "MUSIC_DEV":
-          return "MUSIC_DEV";
-        case "BOOK_WRITING":
-          return "STORYTELLING"; // but focused on chapters
-        case "CODING":
-          return "GAME_DEV"; // but code/system focused
-        case "LANGUAGE_LAB":
-          return "STORYTELLING";
-        case "IMAGE_LAB":
-          return "STORYTELLING";
-        case "VOICE_LAB":
-          return "STORYTELLING";
-        case "SETTINGS":
-          return "FREE";
-        default:
-          return "STORYTELLING";
-      }
-    }
-
-    function getDepthForBackend() {
-      if (depthMode === "fast") return "fast";
-      if (depthMode === "super_deep") return "super_deep";
-      return "deep";
-    }
-
-    // -----------------------------
-    // Tab switching
-    // -----------------------------
-    function setActiveTab(tab) {
-      activeTab = tab;
-
-      tabButtons.forEach((btn) => {
-        if (btn.dataset.tab === tab) {
-          btn.classList.add("active");
-        } else {
-          btn.classList.remove("active");
-        }
-      });
-
-      paneSections.forEach((panel) => {
-        if (panel.id === "panel-" + tab) {
-          panel.classList.add("active");
-        } else {
-          panel.classList.remove("active");
-        }
-      });
-
-      renderChatForTab(tab);
-
-      // Optional: Add a little system hint on first visit
-      if ((sessions[tab] || []).length === 0) {
-        let hintText = "";
-        if (tab === "STORYTELLING") {
-          hintText =
-            "Storytelling tab active. Ask me to expand lore, realms, races, and narrative arcs.";
-        } else if (tab === "GAME_DEV") {
-          hintText =
-            "Game Dev tab active. Ask for combat systems, bosses, levels, and progression design.";
-        } else if (tab === "MUSIC_DEV") {
-          hintText =
-            "Music Dev tab active. Ask for lyrics, beats, OST cues, and soundscape direction.";
-        } else if (tab === "BOOK_WRITING") {
-          hintText =
-            "Book Writing tab active. Ask me to write or revise chapters, scenes, and character moments.";
-        } else if (tab === "CODING") {
-          hintText =
-            "Coding tab active. Ask for tools, scripts, and engine logic—especially for your game.";
-        } else if (tab === "LANGUAGE_LAB") {
-          hintText =
-            "Language Lab active. Describe the feel of your language, and I’ll build phonetics, scripts, and grammar.";
-        } else if (tab === "IMAGE_LAB") {
-          hintText =
-            "Image Lab active. Refine prompts here, then hit Generate to call your backend /generate_image route.";
-        } else if (tab === "VOICE_LAB") {
-          hintText =
-            "Voice Lab active. Adjust voice, rate, pitch, and auto-speak for assistant replies.";
-        } else if (tab === "SETTINGS") {
-          hintText =
-            "Settings active. Adjust project ID, depth mode, and review owner info.";
-        }
-
-        if (hintText) {
-          appendMessage(tab, "assistant", hintText);
-        }
-      }
-    }
-
-    tabButtons.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const tab = btn.dataset.tab;
-        if (!tab) return;
-        setActiveTab(tab);
-      });
-    });
-
-    // -----------------------------
-    // Project switching
-    // -----------------------------
-    projectIdApply.addEventListener("click", () => {
-      const val = parseInt(projectIdInput.value, 10);
-      if (!isNaN(val) && val > 0) {
-        currentProjectId = val;
-        appendMessage(
-          "SETTINGS",
-          "assistant",
-          `Active project ID set to ${val}. All tabs now use this project's canon on the backend.`
-        );
-      } else {
-        appendMessage(
-          "SETTINGS",
-          "assistant",
-          "Project ID must be a positive number (1, 2, 3, ...)."
-        );
-      }
-    });
-
-    // -----------------------------
-    // Chat form submit
-    // -----------------------------
-    chatForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      setError("");
-
-      const text = chatInput.value.trim();
-      if (!text) return;
-
-      appendMessage(activeTab, "user", text);
-      chatInput.value = "";
-      sendBtn.disabled = true;
-      sendBtn.textContent = "Thinking...";
-
-      const domain = getDomainForTab(activeTab);
-      const depth = getDepthForBackend();
-
-      const promptWithDomain =
-        `[DOMAIN: ${domain}]\n[ACTIVE_TAB: ${activeTab}]\n\n` + text;
-
-      const body = {
-        prompt: promptWithDomain,
-        mode: "auto",
-        depth: depth,
-        project_id: currentProjectId,
-      };
-
-      try {
-        const res = await fetch("/generate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-        });
-
-        if (!res.ok) {
-          const errText = await res.text();
-          setError("Backend error: " + errText.slice(0, 200));
-          appendMessage(
-            activeTab,
-            "assistant",
-            "I hit a backend error while generating. Please check the logs or your API key / subscription settings."
-          );
-        } else {
-          const data = await res.json();
-          const answer = data.response || "[No response]";
-          appendMessage(activeTab, "assistant", answer);
-        }
-      } catch (err) {
-        console.error(err);
-        setError("Network error talking to /generate.");
-        appendMessage(
-          activeTab,
-          "assistant",
-          "I couldn’t reach the backend. Please confirm the server is running."
-        );
-      } finally {
-        sendBtn.disabled = false;
-        sendBtn.textContent = "Send ➤";
-      }
-    });
-
-    // -----------------------------
-    // Voice handling (Web Speech API)
-    // -----------------------------
-    function loadVoices() {
-      if (!("speechSynthesis" in window)) {
-        autoSpeakEnabled = false;
-        autoSpeakToggle.checked = false;
-        autoSpeakToggle.disabled = true;
-        sampleBtn.disabled = true;
-        const opt = document.createElement("option");
-        opt.textContent = "No speech synthesis available in this browser";
-        voiceSelect.appendChild(opt);
-        return;
-      }
-
-      voices = window.speechSynthesis.getVoices();
-      voiceSelect.innerHTML = "";
-
-      if (!voices.length) {
-        // voices may not be ready yet
-        setTimeout(loadVoices, 500);
-        return;
-      }
-
-      voices.forEach((v, idx) => {
-        const opt = document.createElement("option");
-        opt.value = idx;
-        opt.textContent = `${v.name} (${v.lang})${v.default ? " [default]" : ""}`;
-        voiceSelect.appendChild(opt);
-      });
-
-      // Try to pick a female-ish / en-GB or en-US voice as a Bastila-ish default
-      let preferredIndex = 0;
-      voices.forEach((v, idx) => {
-        const name = v.name.toLowerCase();
-        const lang = v.lang.toLowerCase();
-        if (
-          (lang.startsWith("en-gb") || lang.startsWith("en-us")) &&
-          (name.includes("female") ||
-            name.includes("woman") ||
-            name.includes("salli") ||
-            name.includes("emma") ||
-            name.includes("olivia"))
-        ) {
-          preferredIndex = idx;
-        }
-      });
-
-      voiceSelect.value = String(preferredIndex);
-      selectedVoice = voices[preferredIndex];
-    }
-
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-      loadVoices();
-    }
-
-    voiceSelect.addEventListener("change", () => {
-      const idx = parseInt(voiceSelect.value, 10);
-      if (!isNaN(idx) && voices[idx]) {
-        selectedVoice = voices[idx];
-      }
-    });
-
-    rateSlider.addEventListener("input", () => {
-      voiceRate = parseFloat(rateSlider.value);
-      rateValue.textContent = voiceRate.toFixed(2);
-    });
-
-    pitchSlider.addEventListener("input", () => {
-      voicePitch = parseFloat(pitchSlider.value);
-      pitchValue.textContent = voicePitch.toFixed(2);
-    });
-
-    autoSpeakToggle.addEventListener("change", () => {
-      autoSpeakEnabled = autoSpeakToggle.checked;
-    });
-
-    function speakText(text) {
-      if (!("speechSynthesis" in window)) return;
-      if (!text || !autoSpeakEnabled) return;
-
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      }
-      utterance.rate = voiceRate;
-      utterance.pitch = voicePitch;
-      window.speechSynthesis.speak(utterance);
-    }
-
-    sampleBtn.addEventListener("click", () => {
-      speakText(sampleTextEl.value.trim());
-    });
-
-    // -----------------------------
-    // Image generation
-    // -----------------------------
-    imageGenerateBtn.addEventListener("click", async () => {
-      setError("");
-      imageResultsEl.textContent = "";
-
-      const prompt = imagePromptEl.value.trim();
-      if (!prompt) {
-        imageResultsEl.textContent = "Please enter a prompt first.";
-        return;
-      }
-
-      const body = {
-        prompt: prompt,
-        size: imageSizeEl.value,
-        quality: imageQualityEl.value,
-        n: 1,
-      };
-
-      imageResultsEl.textContent = "Calling /generate_image...";
-
-      try {
-        const res = await fetch("/generate_image", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          imageResultsEl.textContent =
-            "Image error: " + JSON.stringify(data).slice(0, 200);
-          return;
-        }
-
-        if (!data.urls || !data.urls.length) {
-          imageResultsEl.textContent =
-            "No URLs returned from backend. Check your /generate_image route or billing.";
-          return;
-        }
-
-        const url = data.urls[0];
-        if (url.startsWith("ERROR:")) {
-          imageResultsEl.textContent = url;
-          return;
-        }
-
-        imageResultsEl.innerHTML =
-          '<div class="hint">Result:</div><a href="' +
-          url +
-          '" target="_blank" style="color:' +
-          "var(--accent)" +
-          ';">Open generated image</a>';
-      } catch (err) {
-        console.error(err);
-        imageResultsEl.textContent =
-          "Network error talking to /generate_image endpoint.";
-      }
-    });
-
-    // -----------------------------
-    // Depth mode buttons
-    // -----------------------------
-    function setDepth(mode) {
-      depthMode = mode;
-      depthFastBtn.classList.remove("active-depth");
-      depthDeepBtn.classList.remove("active-depth");
-      depthSuperBtn.classList.remove("active-depth");
-    }
-
-    depthFastBtn.addEventListener("click", () => setDepth("fast"));
-    depthDeepBtn.addEventListener("click", () => setDepth("deep"));
-    depthSuperBtn.addEventListener("click", () => setDepth("super_deep"));
-
-    // -----------------------------
-    // Init
-    // -----------------------------
-    setActiveTab("STORYTELLING");
-  </script>
+</div>
 </body>
 </html>
