@@ -1,194 +1,253 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>Book Worm AI</title>
-    <link rel="stylesheet" href="/static/styles.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/script.js" defer></script>
+  <meta charset="UTF-8" />
+  <title>Book Worm AI Studio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/static/styles.css" />
 </head>
-
 <body>
-<div id="app">
-    <header id="top-header">
-        <div class="brand">
-            <img src="/static/bookworm-192.png" class="logo" alt="Book Worm AI logo" />
-            <div class="brand-text">
-                <h1>Book Worm AI</h1>
-                <p class="tagline">AAA Storytelling · Game Dev · Music · Language Lab</p>
-            </div>
+  <div id="app">
+    <!-- LEFT SIDEBAR: NAV / TABS -->
+    <aside class="sidebar">
+      <div class="logo-block">
+        <div class="logo-circle">
+          <img src="/static/bookworm-192.png" alt="Book Worm AI" />
         </div>
-        <div class="owner-status">
-            <span id="owner-badge">Guest Mode</span>
+        <div class="logo-text">
+          <h1>Book Worm AI</h1>
+          <span class="beta-tag">Creator Studio · Beta</span>
         </div>
-    </header>
+      </div>
 
-    <nav id="tab-bar">
-        <button data-tab="chat" class="active">Chat</button>
-        <button data-tab="book">Book Writing</button>
-        <button data-tab="game">Game Dev</button>
-        <button data-tab="language">Language Lab</button>
-        <button data-tab="music">Music / Audio</button>
-        <button data-tab="projects">Projects</button>
-        <button data-tab="owner">Admin</button>
-        <button data-tab="analytics">Analytics</button>
-    </nav>
+      <!-- Account summary -->
+      <div class="account-summary">
+        <div id="account-status-line" class="account-status">
+          Not signed in
+        </div>
+        <div id="plan-pill" class="plan-pill plan-free">
+          Plan: Free
+        </div>
+      </div>
 
-    <main id="main-panels">
-        <!-- CHAT TAB -->
-        <section id="chat" class="tab active">
-            <h2>Chat / Lore / Free Exploration</h2>
-            <p class="tab-hint">
-                General conversation, lore help, ideas, and mixed tasks.
-            </p>
-            <textarea id="chat-input" class="input-area" placeholder="Ask anything..."></textarea>
-            <div class="controls-row">
-                <select id="chat-depth">
-                    <option value="deep" selected>Deep</option>
-                    <option value="super_deep">Super Deep</option>
+      <!-- Navigation / Tabs -->
+      <nav class="nav-tabs">
+        <button class="nav-tab active" data-panel="chat" id="tab-chat">
+          General Chat
+        </button>
+        <button class="nav-tab" data-panel="storytelling" id="tab-storytelling">
+          Storytelling
+        </button>
+        <button class="nav-tab" data-panel="gamedev" id="tab-gamedev">
+          Game Development
+        </button>
+        <button class="nav-tab" data-panel="music" id="tab-music">
+          Music Development
+        </button>
+        <button class="nav-tab" data-panel="book" id="tab-book">
+          Book Writing
+        </button>
+        <button class="nav-tab" data-panel="language" id="tab-language">
+          Language Lab
+        </button>
+        <button class="nav-tab" data-panel="image" id="tab-image">
+          Image Lab
+        </button>
+        <button class="nav-tab" data-panel="voice" id="tab-voice">
+          Voice Lab
+        </button>
+        <button class="nav-tab" data-panel="coding" id="tab-coding">
+          Coding
+        </button>
+        <button class="nav-tab" data-panel="subscription" id="tab-subscription">
+          Subscription / Billing
+        </button>
+        <button class="nav-tab nav-tab-admin" data-panel="admin" id="tab-admin" style="display:none;">
+          Owner · Admin Dashboard
+        </button>
+      </nav>
+
+      <!-- Quick shortcuts -->
+      <div class="sidebar-footer">
+        <button id="btn-open-docs" class="sidebar-aux-btn">
+          API Docs
+        </button>
+        <button id="btn-open-marketing" class="sidebar-aux-btn">
+          Marketing Site
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN AREA -->
+    <main class="main">
+      <!-- TOP BAR: login / register -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <span id="topbar-user-label">Guest session</span>
+        </div>
+        <div class="topbar-right">
+          <form id="auth-form" class="auth-form">
+            <input
+              type="email"
+              id="auth-email"
+              placeholder="email"
+              autocomplete="email"
+              required
+            />
+            <input
+              type="password"
+              id="auth-password"
+              placeholder="password"
+              autocomplete="current-password"
+              required
+            />
+            <button type="button" id="btn-login">Login</button>
+            <button type="button" id="btn-register">Register</button>
+            <button type="button" id="btn-logout" class="secondary" style="display:none;">
+              Logout
+            </button>
+          </form>
+        </div>
+      </header>
+
+      <!-- ACTIVE PANEL WRAPPER -->
+      <section class="panel-wrapper">
+        <!-- Shared CHAT VIEW + PROMPT for all creative tabs -->
+        <section id="studio-panel" class="panel active-panel">
+          <div id="current-context" class="context-pill">
+            Domain: <span id="current-domain-label">CHAT</span>
+          </div>
+
+          <div id="chat-log" class="chat-log"></div>
+
+          <form id="chat-form" class="chat-form">
+            <div class="chat-controls-top">
+              <label>
+                Depth:
+                <select id="depth-select">
+                  <option value="deep" selected>Deep</option>
+                  <option value="fast">Fast</option>
                 </select>
-                <button onclick="sendChat()">Generate</button>
+              </label>
+              <label>
+                Project ID:
+                <input
+                  type="number"
+                  id="project-id-input"
+                  placeholder="optional"
+                  min="1"
+                />
+              </label>
+              <button type="button" id="btn-save-canon" class="secondary">
+                Save last answer as canon
+              </button>
             </div>
-            <div id="chat-output" class="output-area"></div>
+
+            <textarea
+              id="prompt-input"
+              rows="3"
+              placeholder="Type to your AI here... the active tab will define how she thinks (Storytelling, Game Dev, Music, etc.)"
+            ></textarea>
+
+            <div class="chat-controls-bottom">
+              <button type="submit" id="btn-send" class="primary">
+                Generate
+              </button>
+            </div>
+          </form>
         </section>
 
-        <!-- BOOK WRITING TAB -->
-        <section id="book" class="tab">
-            <h2>Book Writing Suite</h2>
-            <p class="tab-hint">
-                Long-form narrative, chapters, scenes, and structural planning.
-            </p>
-            <textarea id="book-input" class="input-area" placeholder="Describe what you want to write next..."></textarea>
-            <div class="controls-row">
-                <select id="book-depth">
-                    <option value="deep" selected>Deep</option>
-                    <option value="super_deep">Super Deep</option>
-                </select>
-                <button onclick="sendBook()">Generate</button>
+        <!-- SUBSCRIPTION / BILLING PANEL -->
+        <section id="subscription-panel" class="panel">
+          <h2>Subscription & Billing</h2>
+          <p class="panel-intro">
+            Manage your Book Worm AI plan. All payments are handled securely by Stripe.
+          </p>
+
+          <div id="subscription-current" class="subscription-current">
+            <strong>Current plan:</strong> <span id="subscription-plan-label">Free</span><br />
+            <span id="subscription-plan-detail"></span>
+          </div>
+
+          <div class="subscription-grid">
+            <div class="subscription-card">
+              <h3>Basic</h3>
+              <p class="price-line">$10 / month</p>
+              <p>Great for focused writers & small game dev experiments.</p>
+              <ul>
+                <li>Higher monthly generation limits</li>
+                <li>Canon storage for 1–2 projects</li>
+                <li>Basic image prompts</li>
+              </ul>
+              <button class="primary" data-plan="basic" id="btn-basic-plan">
+                Choose Basic
+              </button>
             </div>
-            <div id="book-output" class="output-area"></div>
+
+            <div class="subscription-card">
+              <h3>Pro</h3>
+              <p class="price-line">$20 / month</p>
+              <p>For serious multi-world builders and solo devs.</p>
+              <ul>
+                <li>More monthly generations</li>
+                <li>Multiple canon projects</li>
+                <li>Enhanced image & music prompts</li>
+              </ul>
+              <button class="primary" data-plan="pro" id="btn-pro-plan">
+                Choose Pro
+              </button>
+            </div>
+
+            <div class="subscription-card">
+              <h3>Patron</h3>
+              <p class="price-line">$49 / month</p>
+              <p>For power users, studios, and those who want to support development.</p>
+              <ul>
+                <li>Highest generation limits</li>
+                <li>Many canon projects</li>
+                <li>Priority feature requests</li>
+              </ul>
+              <button class="primary" data-plan="patron" id="btn-patron-plan">
+                Choose Patron
+              </button>
+            </div>
+          </div>
+
+          <div class="subscription-note">
+            You must be logged in to upgrade. If you’re the owner, your account
+            automatically bypasses subscription limits.
+          </div>
         </section>
 
-        <!-- GAME DEV TAB -->
-        <section id="game" class="tab">
-            <h2>Game Development Lab</h2>
-            <p class="tab-hint">
-                AAA systems, levels, bosses, mechanics, progression, combat, and more.
-            </p>
-            <textarea id="game-input" class="input-area" placeholder="Describe the system, boss, or level you want to design..."></textarea>
-            <div class="controls-row">
-                <select id="game-depth">
-                    <option value="deep" selected>Deep</option>
-                    <option value="super_deep">Super Deep</option>
-                </select>
-                <button onclick="sendGame()">Generate</button>
+        <!-- ADMIN PANEL -->
+        <section id="admin-panel" class="panel">
+          <h2>Owner · Admin Dashboard</h2>
+          <p class="panel-intro">
+            This view is only visible for the owner account (configured via <code>BOOKWORM_OWNER_CODE</code>).
+          </p>
+
+          <div class="admin-grid">
+            <div class="admin-card">
+              <h3>Subscribers</h3>
+              <button id="btn-refresh-subscribers" class="secondary small">
+                Refresh subscribers
+              </button>
+              <div id="admin-subscribers-table" class="admin-table"></div>
             </div>
-            <div id="game-output" class="output-area"></div>
+
+            <div class="admin-card">
+              <h3>Usage</h3>
+              <button id="btn-refresh-usage" class="secondary small">
+                Refresh usage
+              </button>
+              <div id="admin-usage-summary" class="admin-usage"></div>
+            </div>
+          </div>
         </section>
-
-        <!-- LANGUAGE LAB TAB -->
-        <section id="language" class="tab">
-            <h2>Language Lab</h2>
-            <p class="tab-hint">
-                Build visual + spoken languages: alphabets, phonetics, grammar, phrases.
-            </p>
-            <textarea id="language-input" class="input-area" placeholder="Explain the vibe of the language you want to create..."></textarea>
-            <div class="controls-row">
-                <select id="language-depth">
-                    <option value="deep" selected>Deep</option>
-                    <option value="super_deep">Super Deep</option>
-                </select>
-                <button onclick="sendLanguage()">Generate</button>
-            </div>
-            <div id="language-output" class="output-area"></div>
-        </section>
-
-        <!-- MUSIC / AUDIO TAB -->
-        <section id="music" class="tab">
-            <h2>Music / Audio Lab</h2>
-            <p class="tab-hint">
-                Lyrics, OST concepts, ambience, SFX directions, and vocal ideas.
-            </p>
-            <textarea id="music-input" class="input-area" placeholder="Describe the track, mood, or SFX you want..."></textarea>
-            <div class="controls-row">
-                <select id="music-depth">
-                    <option value="deep" selected>Deep</option>
-                    <option value="super_deep">Super Deep</option>
-                </select>
-                <button onclick="sendMusic()">Generate</button>
-            </div>
-            <div id="music-output" class="output-area"></div>
-        </section>
-
-        <!-- PROJECTS TAB -->
-        <section id="projects" class="tab">
-            <h2>Projects</h2>
-            <p class="tab-hint">
-                Manage separate universes: each with its own canon, vectors, and labs.
-            </p>
-            <div id="project-controls">
-                <input id="project-name" placeholder="New project name..." />
-                <input id="project-desc" placeholder="Short description..." />
-                <button onclick="createProject()">Create Project</button>
-            </div>
-            <div id="project-list" class="output-area"></div>
-        </section>
-
-        <!-- ADMIN TAB -->
-        <section id="owner" class="tab">
-            <h2>Admin Mode</h2>
-            <p class="tab-hint">
-                Owner tools, no limits. Enter your owner code once to unlock everything.
-            </p>
-
-            <div id="owner-auth-box">
-                <input id="owner-code-input" type="password" placeholder="Enter owner code..." />
-                <button onclick="setOwnerCode()">Unlock Admin</button>
-            </div>
-
-            <div id="owner-output" class="output-area"></div>
-        </section>
-
-        <!-- ANALYTICS TAB -->
-        <section id="analytics" class="tab">
-            <h2>Analytics Dashboard</h2>
-            <p class="tab-hint">
-                Live overview of generations, errors, and usage over time.
-            </p>
-
-            <div class="analytics-grid">
-                <!-- Summary card -->
-                <div class="analytics-card">
-                    <h3>Summary</h3>
-                    <button onclick="loadAnalyticsSummary()">Refresh Summary</button>
-                    <div id="analytics-summary" class="analytics-summary-body">
-                        <p>Loading...</p>
-                    </div>
-                </div>
-
-                <!-- Charts card -->
-                <div class="analytics-card">
-                    <h3>Events by Type</h3>
-                    <canvas id="eventsByTypeChart" width="400" height="240"></canvas>
-                </div>
-
-                <div class="analytics-card">
-                    <h3>Last 24h Activity</h3>
-                    <canvas id="eventsTimelineChart" width="400" height="240"></canvas>
-                </div>
-            </div>
-
-            <div class="analytics-card wide">
-                <div class="analytics-header-row">
-                    <h3>Recent Events</h3>
-                    <button onclick="loadRecentEvents()">Refresh Events</button>
-                </div>
-                <div id="analytics-events" class="analytics-events-body">
-                    <p>Loading...</p>
-                </div>
-            </div>
-        </section>
+      </section>
     </main>
-</div>
+  </div>
+
+  <script src="/static/script.js"></script>
 </body>
 </html>
