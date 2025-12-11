@@ -993,3 +993,13 @@ async def admin_usage(owner: dict = Depends(owner_dependency)):
 
     events = [{"event_type": r["event_type"], "count": r["c"]} for r in rows]
     return AdminUsageResponse(total_generations=total, events=events)
+
+# --- DEBUG: Stripe config check (remove after fixing Stripe) ---
+@app.get("/debug/stripe")
+def debug_stripe():
+    return {
+        "has_secret_key": bool(STRIPE_SECRET_KEY),
+        "has_webhook_secret": bool(STRIPE_WEBHOOK_SECRET),
+        "secret_key_length": len(STRIPE_SECRET_KEY) if STRIPE_SECRET_KEY else 0,
+        "webhook_length": len(STRIPE_WEBHOOK_SECRET) if STRIPE_WEBHOOK_SECRET else 0,
+    }
