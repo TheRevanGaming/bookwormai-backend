@@ -4,3 +4,4 @@ python-dotenv==1.2.1
 openai==2.9.0
 email-validator==2.3.0
 stripe==11.4.1
+stripe
