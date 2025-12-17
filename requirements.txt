@@ -1,7 +1,8 @@
 fastapi==0.124.0
 uvicorn[standard]==0.38.0
 python-dotenv==1.2.1
-openai==2.9.0
+openai>=1.0.0
 email-validator==2.3.0
-stripe==11.4.1
-stripe
+stripe==12.5.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.20

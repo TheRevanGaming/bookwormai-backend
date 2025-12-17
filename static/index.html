@@ -1,214 +1,171 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Book Worm AI Studio</title>
-  <link rel="stylesheet" href="/static/styles.css" />
-  <link rel="icon" href="/static/bookworm-192.png" />
+  <link rel="stylesheet" href="/static/styles.css"/>
+  <script defer src="/static/script.js"></script>
 </head>
 <body>
-  <div class="bg-grid"></div>
-
   <header class="topbar">
     <div class="brand">
-      <img class="brandLogo" src="/static/bookworm-192.png" alt="Book Worm AI" />
+      <img class="brandLogo" src="/static/bookworm-192.png" alt="Book Worm AI"/>
       <div class="brandText">
         <div class="brandName">Book Worm AI</div>
         <div class="brandSub">Studio</div>
       </div>
     </div>
-
     <div class="topbarRight">
       <div id="userBadge" class="userBadge hidden"></div>
-      <button id="btnSettings" class="btn ghost" title="Settings">
-        ⚙ Settings
-      </button>
-      <button id="btnLogout" class="btn ghost hidden" title="Logout">
-        ↩ Logout
-      </button>
+      <button id="btnSettings" class="btn ghost">⚙ Settings</button>
+      <button id="btnLogout" class="btn ghost hidden">↩ Logout</button>
     </div>
   </header>
 
   <main class="shell">
-    <aside class="sidebar">
+    <aside class="side">
       <div class="card">
         <div class="cardTitle">Tabs</div>
-        <div class="tabList" id="tabList"></div>
-        <div class="divider"></div>
-        <button id="btnNewProject" class="btn primary full">＋ New Project</button>
-        <button id="btnSwitchProject" class="btn full">⇄ Switch Project</button>
+        <div id="tabsList" class="tabsList"></div>
+        <div class="row">
+          <button id="btnNewProject" class="btn primary full">＋ New Project</button>
+          <button id="btnSwitchProject" class="btn full">⇄ Switch Project</button>
+        </div>
       </div>
 
       <div class="card">
         <div class="cardTitle">Tools</div>
-        <div class="toolList">
-          <button class="btn tool full" data-tool="save_to_canon">📌 Save to Canon</button>
-          <button class="btn tool full" data-tool="view_canon">📚 View Canon</button>
-          <button class="btn tool full" data-tool="pricing">💳 Pricing</button>
-        </div>
+        <button class="btn tool full" data-tool="save_to_canon">📌 Save to Canon</button>
+        <button class="btn tool full" data-tool="view_canon">📚 View Canon</button>
+        <button class="btn tool full" data-tool="pricing">💳 Pricing</button>
       </div>
 
       <div class="card hidden" id="adminCard">
         <div class="cardTitle">Admin</div>
-        <div class="toolList">
-          <button class="btn tool full" data-tool="admin_analytics">📈 Analytics</button>
-          <button class="btn tool full" data-tool="admin_users">👤 Users</button>
-          <button class="btn tool full" data-tool="admin_subs">💰 Subscriptions</button>
-        </div>
+        <button class="btn tool full" data-tool="admin_analytics">📈 Analytics</button>
+        <button class="btn tool full" data-tool="admin_users">👤 Users</button>
+        <button class="btn tool full" data-tool="admin_subs">💰 Subscriptions</button>
       </div>
     </aside>
 
-    <section class="content">
-      <div class="contentHeader">
-        <div class="contentTitle" id="activeTabTitle">Chat</div>
-        <div class="contentMeta" id="activeProjectMeta">Project: <span id="projectName">Default</span></div>
+    <section class="main">
+      <div class="mainHeader">
+        <div class="hTitle" id="activeTabTitle">Chat</div>
+        <div class="hMeta" id="projectBadge">Project: Default</div>
       </div>
 
-      <div class="chatWrap">
-        <div id="chatFeed" class="chatFeed"></div>
+      <div id="chatLog" class="chatLog"></div>
 
-        <div class="composer">
-          <textarea id="promptInput" class="prompt" placeholder="Type here… (Shift+Enter for newline)"></textarea>
-          <button id="btnSend" class="btn primary">Send</button>
-        </div>
+      <div class="composer">
+        <textarea id="prompt" class="input grow" placeholder="Type here… (Shift+Enter for newline)"></textarea>
+        <button id="btnSend" class="btn primary">Send</button>
       </div>
     </section>
   </main>
 
-  <!-- AUTH MODAL -->
+  <!-- Auth modal -->
   <div id="authModal" class="modal hidden">
-    <div class="modalBackdrop"></div>
     <div class="modalCard">
-      <div class="modalHeader">
+      <div class="modalTop">
         <div class="modalTitle">Welcome</div>
         <button class="btn ghost" data-close="authModal">✕</button>
       </div>
-
-      <div class="modalBody">
-        <div class="segRow">
-          <button id="authModeLogin" class="seg active">Log in</button>
-          <button id="authModeRegister" class="seg">Sign up</button>
-        </div>
-
-        <label class="label">Email</label>
-        <input id="authEmail" class="input" type="email" placeholder="you@example.com" />
-
-        <label class="label">Password</label>
-        <input id="authPassword" class="input" type="password" placeholder="••••••••" />
-
-        <div class="hint" id="authHint"></div>
-
-        <button id="btnAuthSubmit" class="btn primary full">Continue</button>
+      <div class="segRow">
+        <button id="authModeLogin" class="seg active">Log in</button>
+        <button id="authModeRegister" class="seg">Sign up</button>
       </div>
+      <label class="lbl">Email</label>
+      <input id="authEmail" class="input" type="email" placeholder="you@example.com"/>
+      <label class="lbl">Password</label>
+      <input id="authPassword" class="input" type="password" placeholder="••••••••"/>
+      <button id="btnAuthSubmit" class="btn primary full">Continue</button>
+      <div class="hint" id="authHint"></div>
     </div>
   </div>
 
-  <!-- SETTINGS MODAL -->
+  <!-- Settings modal -->
   <div id="settingsModal" class="modal hidden">
-    <div class="modalBackdrop"></div>
     <div class="modalCard wide">
-      <div class="modalHeader">
+      <div class="modalTop">
         <div class="modalTitle">Settings</div>
         <button class="btn ghost" data-close="settingsModal">✕</button>
       </div>
 
-      <div class="modalBody grid2">
-        <div>
-          <div class="sectionTitle">Account</div>
-          <div class="kv">
-            <div class="k">Signed in as</div>
-            <div class="v" id="settingsEmail">—</div>
-          </div>
-          <div class="kv">
-            <div class="k">Plan</div>
-            <div class="v" id="settingsPlan">—</div>
-          </div>
-          <div class="kv">
-            <div class="k">Owner</div>
-            <div class="v" id="settingsOwner">—</div>
-          </div>
-
-          <div class="divider"></div>
-
-          <button id="btnOpenPricing" class="btn full">Open Pricing</button>
+      <div class="grid2">
+        <div class="kv">
+          <div class="k">Account</div>
+          <div class="v" id="settingsEmail">—</div>
         </div>
-
-        <div>
-          <div class="sectionTitle">Owner / Admin</div>
-          <p class="hint">
-            Owner code unlocks Admin tools (Analytics, Users, Subs) on this account only.
-          </p>
-
-          <label class="label">Owner Code</label>
-          <input id="ownerCode" class="input" type="password" placeholder="Enter owner code…" />
-
-          <button id="btnOwnerLogin" class="btn primary full">Unlock Admin</button>
-
-          <div class="hint" id="ownerHint"></div>
-
-          <div class="divider"></div>
-
-          <button id="btnOwnerLogout" class="btn full">Lock Admin</button>
+        <div class="kv">
+          <div class="k">Plan</div>
+          <div class="v" id="settingsPlan">—</div>
         </div>
+        <div class="kv">
+          <div class="k">Owner</div>
+          <div class="v" id="settingsOwner">No</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="btnOpenPricing" class="btn full">Open Pricing</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="ownerBox">
+        <div class="ownerTitle">Owner / Admin</div>
+        <div class="ownerDesc">Owner code unlocks Admin tools (Analytics, Users, Subs) on this account only.</div>
+        <input id="ownerCode" class="input" type="password" placeholder="Enter owner code…"/>
+        <button id="btnOwnerLogin" class="btn primary full">Unlock Admin</button>
+        <button id="btnOwnerLogout" class="btn full">Lock Admin</button>
+        <div class="hint" id="ownerHint"></div>
       </div>
     </div>
   </div>
 
-  <!-- CANON MODAL -->
+  <!-- Canon modal -->
   <div id="canonModal" class="modal hidden">
-    <div class="modalBackdrop"></div>
     <div class="modalCard wide">
-      <div class="modalHeader">
+      <div class="modalTop">
         <div class="modalTitle">Canon</div>
         <button class="btn ghost" data-close="canonModal">✕</button>
       </div>
-      <div class="modalBody">
-        <div id="canonList" class="canonList"></div>
-      </div>
+      <div id="canonList" class="canonList"></div>
     </div>
   </div>
 
-  <!-- PRICING MODAL -->
+  <!-- Pricing modal -->
   <div id="pricingModal" class="modal hidden">
-    <div class="modalBackdrop"></div>
     <div class="modalCard wide">
-      <div class="modalHeader">
+      <div class="modalTop">
         <div class="modalTitle">Pricing</div>
         <button class="btn ghost" data-close="pricingModal">✕</button>
       </div>
-      <div class="modalBody">
-        <div class="pricingGrid">
-          <div class="priceCard">
-            <div class="priceName">Basic</div>
-            <div class="priceTag">$10 / mo</div>
-            <div class="priceDesc">Creators getting started</div>
-            <button class="btn primary full" data-price-plan="basic">Choose Basic</button>
-          </div>
-          <div class="priceCard">
-            <div class="priceName">Pro</div>
-            <div class="priceTag">$20 / mo</div>
-            <div class="priceDesc">Serious creators & teams</div>
-            <button class="btn primary full" data-price-plan="pro">Choose Pro</button>
-          </div>
-          <div class="priceCard glow">
-            <div class="priceName">Patron</div>
-            <div class="priceTag">$49 / mo</div>
-            <div class="priceDesc">Power users + max features</div>
-            <button class="btn primary full" data-price-plan="patron">Choose Patron</button>
-          </div>
+      <div class="pricingGrid">
+        <div class="priceCard">
+          <div class="pName">Basic</div>
+          <div class="pPrice">$10 / mo</div>
+          <div class="pDesc">Creators getting started</div>
+          <button class="btn primary full" data-price-plan="basic">Choose Basic</button>
         </div>
-
-        <div class="hint">
-          Checkout opens in a new tab. After payment, refresh this page and your plan will sync.
+        <div class="priceCard">
+          <div class="pName">Pro</div>
+          <div class="pPrice">$20 / mo</div>
+          <div class="pDesc">Serious creators & teams</div>
+          <button class="btn primary full" data-price-plan="pro">Choose Pro</button>
         </div>
+        <div class="priceCard">
+          <div class="pName">Patron</div>
+          <div class="pPrice">$49 / mo</div>
+          <div class="pDesc">Power users + max features</div>
+          <button class="btn primary full" data-price-plan="patron">Choose Patron</button>
+        </div>
+      </div>
+      <div class="hint">
+        Checkout opens in a new tab. After payment, refresh this page and your plan will sync.
       </div>
     </div>
   </div>
-
-  <!-- TOAST -->
-  <div id="toast" class="toast hidden"></div>
-
-  <script src="/static/script.js"></script>
 </body>
 </html>

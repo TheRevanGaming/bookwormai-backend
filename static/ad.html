@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Book Worm AI — Launch Ad</title>
+  <style>
+    :root{
+      --bg0:#07070a;
+      --bg1:#0b0c12;
+      --ink:#e9edf5;
+      --muted:#b6c0d6;
+      --glow:#67d1ff;
+      --glow2:#b16cff;
+      --gold:#f4d37b;
+      --accent:#7cf7c5;
+      --danger:#ff4d6d;
+      --card:rgba(255,255,255,.06);
+      --stroke:rgba(255,255,255,.12);
+      --shadow: 0 20px 60px rgba(0,0,0,.55);
+      --r:22px;
+    }
+
+    html,body{height:100%; margin:0; background:radial-gradient(1200px 800px at 70% 10%, rgba(177,108,255,.18), transparent 55%),
+                                   radial-gradient(900px 650px at 20% 75%, rgba(103,209,255,.18), transparent 55%),
+                                   linear-gradient(180deg,var(--bg0),var(--bg1));
+              color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;}
+    *{box-sizing:border-box;}
+
+    .stage{
+      height:100%;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      position:relative;
+      padding:28px;
+    }
+
+    /* subtle “native grandeur” motif: geometric beadwork-inspired border + faint pattern */
+    .pattern{
+      position:absolute; inset:-60px;
+      opacity:.22;
+      background:
+        radial-gradient(circle at 20% 30%, rgba(244,211,123,.10), transparent 35%),
+        radial-gradient(circle at 70% 60%, rgba(124,247,197,.09), transparent 38%),
+        linear-gradient(45deg, rgba(255,255,255,.05), transparent 45%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.045) 0 1px, transparent 1px 14px);
+      filter: blur(.3px);
+      pointer-events:none;
+    }
+
+    .frame{
+      width:min(520px, 92vw);
+      aspect-ratio: 9 / 16;
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+      border: 1px solid rgba(255,255,255,.14);
+      box-shadow: var(--shadow);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .bead-border{
+      position:absolute; inset:14px;
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,.10);
+      pointer-events:none;
+    }
+    .bead-border::before{
+      content:"";
+      position:absolute; inset:-2px;
+      border-radius: 24px;
+      background:
+        repeating-linear-gradient(90deg,
+          rgba(244,211,123,.0) 0 10px,
+          rgba(244,211,123,.26) 10px 12px,
+          rgba(124,247,197,.0) 12px 20px,
+          rgba(103,209,255,.20) 20px 22px,
+          rgba(177,108,255,.0) 22px 30px
+        );
+      opacity:.6;
+      mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+      -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+      padding:10px;
+      box-sizing:border-box;
+      filter: blur(.2px);
+      pointer-events:none;
+    }
+
+    .grain{
+      position:absolute; inset:0;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.25'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+      opacity:.22;
+      pointer-events:none;
+    }
+
+    .topbar{
+      position:absolute; top:18px; left:18px; right:18px;
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px;
+      z-index:5;
+    }
+
+    .brand{
+      display:flex; align-items:center; gap:10px;
+      padding:10px 12px;
+      background: rgba(0,0,0,.25);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 999px;
+      backdrop-filter: blur(10px);
+    }
+    .logo{
+      width:28px; height:28px; border-radius: 10px;
+      background: radial-gradient(circle at 30% 30%, rgba(103,209,255,.35), transparent 55%),
+                  radial-gradient(circle at 70% 70%, rgba(177,108,255,.28), transparent 60%),
+                  rgba(255,255,255,.06);
+      display:grid; place-items:center;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.10);
+    }
+    .logo img{width:100%; height:100%; object-fit:cover;}
+
+    .brand .name{
+      font-weight:800;
+      letter-spacing:.4px;
+      font-size:13px;
+      line-height:1;
+    }
+    .brand .tag{
+      font-size:11px; color:var(--muted);
+      margin-top:2px;
+    }
+    .pill{
+      padding:10px 12px;
+      background: rgba(0,0,0,.25);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 999px;
+      backdrop-filter: blur(10px);
+      font-size:11px;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+
+    .center{
+      position:absolute; inset:0;
+      display:grid;
+      place-items:center;
+      padding:52px 20px 26px;
+    }
+
+    .panel{
+      width:100%;
+      max-width: 440px;
+      padding:18px 18px 16px;
+      border-radius: var(--r);
+      background: rgba(0,0,0,.30);
+      border:1px solid rgba(255,255,255,.12);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .panel::before{
+      content:"";
+      position:absolute; inset:-2px;
+      background: radial-gradient(500px 220px at 10% 10%, rgba(103,209,255,.22), transparent 55%),
+                  radial-gradient(500px 220px at 90% 70%, rgba(177,108,255,.20), transparent 60%);
+      opacity:.85;
+      pointer-events:none;
+    }
+
+    .h1{
+      position:relative;
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: .2px;
+      margin: 0 0 8px;
+      text-shadow: 0 0 24px rgba(103,209,255,.20);
+    }
+    .sub{
+      position:relative;
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0 0 14px;
+      line-height: 1.45;
+    }
+
+    .bullets{
+      position:relative;
+      display:grid;
+      gap:10px;
+      margin-top: 6px;
+    }
+    .b{
+      display:flex; gap:10px;
+      padding:10px 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.10);
+    }
+    .dot{
+      width:10px; height:10px; border-radius: 999px;
+      background: radial-gradient(circle at 30% 30%, rgba(124,247,197,.9), rgba(103,209,255,.75));
+      box-shadow: 0 0 20px rgba(124,247,197,.25);
+      margin-top: 4px;
+      flex:0 0 auto;
+    }
+    .b strong{display:block; font-size:12px;}
+    .b span{display:block; font-size:11px; color:var(--muted); margin-top:2px; line-height:1.3;}
+
+    .cta{
+      position:relative;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top:14px;
+    }
+    .btn{
+      display:flex; justify-content:space-between; align-items:center;
+      padding:12px 14px;
+      border-radius: 18px;
+      border:1px solid rgba(255,255,255,.14);
+      background: linear-gradient(90deg, rgba(103,209,255,.20), rgba(177,108,255,.18));
+      box-shadow: 0 18px 55px rgba(103,209,255,.12);
+      font-weight:800;
+      letter-spacing:.2px;
+      font-size: 13px;
+    }
+    .btn small{font-weight:700; color:rgba(233,237,245,.85); opacity:.95;}
+    .btn2{
+      padding:12px 14px;
+      border-radius: 18px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.26);
+      color:var(--muted);
+      font-weight:700;
+      font-size: 12px;
+    }
+
+    .footer{
+      position:absolute; left:18px; right:18px; bottom:16px;
+      display:flex; flex-direction:column; gap:8px;
+      z-index:6;
+    }
+    .url{
+      padding:10px 12px;
+      border-radius: 16px;
+      background: rgba(0,0,0,.30);
+      border:1px solid rgba(255,255,255,.10);
+      font-size:11px;
+      color: rgba(233,237,245,.92);
+      line-height: 1.25;
+      backdrop-filter: blur(10px);
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space:nowrap;
+    }
+    .url span{color:var(--muted); font-weight:700; margin-right:6px;}
+
+    /* timeline scenes */
+    .scene{position:absolute; inset:0; opacity:0; transform: translateY(14px) scale(.99); transition: opacity .55s ease, transform .55s ease;}
+    .scene.active{opacity:1; transform: translateY(0) scale(1);}
+    .scene .panel{animation: floaty 5s ease-in-out infinite;}
+
+    @keyframes floaty {
+      0%,100%{transform: translateY(0);}
+      50%{transform: translateY(-6px);}
+    }
+
+    /* headline kinetic glow */
+    .glowline{
+      position:absolute; left:-30%; top:40%;
+      width:160%; height:60px;
+      background: linear-gradient(90deg, transparent, rgba(103,209,255,.22), rgba(177,108,255,.18), transparent);
+      transform: rotate(-12deg);
+      filter: blur(10px);
+      opacity:.6;
+      animation: sweep 3.6s ease-in-out infinite;
+      pointer-events:none;
+    }
+    @keyframes sweep{
+      0%{transform: translateX(-10%) rotate(-12deg); opacity:.35;}
+      50%{transform: translateX(10%) rotate(-12deg); opacity:.85;}
+      100%{transform: translateX(-10%) rotate(-12deg); opacity:.35;}
+    }
+
+    .tiny{
+      font-size:10px;
+      color:rgba(182,192,214,.9);
+      letter-spacing:.2px;
+    }
+
+    .countdown{
+      font-weight:900;
+      color:var(--gold);
+      text-shadow: 0 0 18px rgba(244,211,123,.22);
+    }
+
+    /* “recording safe” note */
+    .hint{
+      position:absolute; right:10px; bottom:10px;
+      font-size:10px; color:rgba(255,255,255,.32);
+      user-select:none;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="pattern"></div>
+
+    <div class="frame" id="frame">
+      <div class="glowline"></div>
+      <div class="grain"></div>
+      <div class="bead-border"></div>
+
+      <div class="topbar">
+        <div class="brand">
+          <div class="logo">
+            <img src="logo.png" alt="Book Worm Logo" onerror="this.style.display='none'" />
+          </div>
+          <div>
+            <div class="name">Book Worm AI</div>
+            <div class="tag">Creator Studio • Beta</div>
+          </div>
+        </div>
+        <div class="pill">AAA Output • Story • Game • Music</div>
+      </div>
+
+      <!-- SCENE 1 -->
+      <div class="scene active" id="s1">
+        <div class="center">
+          <div class="panel">
+            <h1 class="h1">Your ideas… <br/>built at AAA quality.</h1>
+            <p class="sub">One studio for worldbuilding, game design, music direction, and production-grade prompts.</p>
+            <div class="bullets">
+              <div class="b"><div class="dot"></div><div><strong>Storytelling + Canon</strong><span>Save lore, evolve worlds, keep continuity tight.</span></div></div>
+              <div class="b"><div class="dot"></div><div><strong>Game Dev Systems</strong><span>Combat, progression, bosses, quests — real design docs.</span></div></div>
+              <div class="b"><div class="dot"></div><div><strong>Music + Audio</strong><span>OST concepts, lyrics, sound palettes, scene scoring.</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCENE 2 -->
+      <div class="scene" id="s2">
+        <div class="center">
+          <div class="panel">
+            <h1 class="h1">From concept… to “show me.”</h1>
+            <p class="sub">Describe a character or place — Book Worm enhances it into a production-ready prompt, fast.</p>
+
+            <div class="bullets">
+              <div class="b"><div class="dot"></div><div><strong>Image Lab</strong><span>High-fidelity prompt craft for concept art pipelines.</span></div></div>
+              <div class="b"><div class="dot"></div><div><strong>Language Lab</strong><span>Create languages from nothing — vocal + visual systems.</span></div></div>
+              <div class="b"><div class="dot"></div><div><strong>Project Isolation</strong><span>Separate workspaces so nothing contaminates your worlds.</span></div></div>
+            </div>
+
+            <div class="cta">
+              <div class="btn"><div>Launch the Studio</div><small>Live now</small></div>
+              <div class="btn2">Choose a plan when you’re ready — start creating immediately.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCENE 3 -->
+      <div class="scene" id="s3">
+        <div class="center">
+          <div class="panel">
+            <h1 class="h1">Beta is open.<br/>Creators wanted.</h1>
+            <p class="sub">If you build worlds, games, or music — Book Worm is your home base.</p>
+
+            <div class="bullets">
+              <div class="b"><div class="dot"></div><div><strong>Fast workflow</strong><span>Tabs for Story, Game Dev, Music, Canon, Labs.</span></div></div>
+              <div class="b"><div class="dot"></div><div><strong>Admin + Analytics</strong><span>Owner tools + usage insights for scaling.</span></div></div>
+              <div class="b"><div class="dot"></div><div><strong>Built to evolve</strong><span>New studio modules incoming (Voice, Film, more).</span></div></div>
+            </div>
+
+            <div class="cta">
+              <div class="btn"><div>Start here → Pricing</div><small><span class="countdown">30-day trial</span></small></div>
+              <div class="btn2 tiny">Tip: record this screen and overlay the voiceover track for a perfect Reel.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="url" title="Studio URL">
+          <span>Studio:</span> https://bookwormai-backend-t8uv.onrender.com/
+        </div>
+        <div class="url" title="Pricing URL">
+          <span>Pricing:</span> https://therevangaming.github.io/bookwormai-site/#pricing
+        </div>
+      </div>
+
+      <div class="hint">Ad player • press F11 for fullscreen • screen-record</div>
+    </div>
+  </div>
+
+  <script>
+    // 40s total, 3 scenes, paced for VO
+    const scenes = [
+      { id: "s1", ms: 14000 },
+      { id: "s2", ms: 14000 },
+      { id: "s3", ms: 12000 }
+    ];
+
+    let i = 0;
+
+    function setScene(idx){
+      document.querySelectorAll(".scene").forEach(s => s.classList.remove("active"));
+      const el = document.getElementById(scenes[idx].id);
+      if (el) el.classList.add("active");
+    }
+
+    function run(){
+      setScene(i);
+      setTimeout(() => {
+        i = (i + 1) % scenes.length;
+        run();
+      }, scenes[i].ms);
+    }
+
+    // Start after a short beat
+    setTimeout(run, 600);
+  </script>
+</body>
+</html>

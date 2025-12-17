@@ -1,44 +1,32 @@
 import os
 import json
-import time
-import hmac
-import base64
 import sqlite3
-import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Any, Dict, List
 
-from fastapi import (
-    FastAPI,
-    HTTPException,
-    Depends,
-    Request,
-    Response,
-)
+from fastapi import FastAPI, HTTPException, Depends, Response, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-
 from pydantic import BaseModel, EmailStr
+from passlib.context import CryptContext
 
-# OpenAI (optional but expected)
+# Optional OpenAI
 try:
     from openai import OpenAI  # type: ignore
 except Exception:
     OpenAI = None  # type: ignore
 
-# Stripe (optional; required if monetizing)
+# Optional Stripe
 try:
     import stripe  # type: ignore
 except Exception:
     stripe = None  # type: ignore
 
 
-# =========================
-# CONFIG
-# =========================
-APP_NAME = os.getenv("APP_NAME", "Book Worm AI")
+APP_NAME = "Book Worm AI"
+
+# ========= ENV =========
 DB_PATH = os.getenv("DB_PATH", os.path.join(os.path.dirname(__file__), "bookworm.db"))
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -46,371 +34,118 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
 
 BOOKWORM_OWNER_CODE = os.getenv("BOOKWORM_OWNER_CODE", "")
 
-# Cookie config
-COOKIE_NAME = os.getenv("BOOKWORM_SESSION_COOKIE", "bookworm_session")
-COOKIE_SECURE = os.getenv("COOKIE_SECURE", "auto")  # "true"/"false"/"auto"
-COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax")  # "lax"/"strict"/"none"
-COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", "")  # optional
-SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
-
-# CORS
-ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
-
-# Frontend URL used by Stripe redirects (your Studio site)
-FRONTEND_URL = os.getenv("FRONTEND_URL", "")  # optional; if blank we fallback to same origin
-
-# Stripe
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_BASIC_PRICE_ID = os.getenv("STRIPE_BASIC_PRICE_ID", "")
 STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "")
 STRIPE_PATRON_PRICE_ID = os.getenv("STRIPE_PATRON_PRICE_ID", "")
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "")  # e.g. https://bookwormai-backend-t8uv.onrender.com
 
-if stripe is not None and STRIPE_SECRET_KEY:
-    stripe.api_key = STRIPE_SECRET_KEY
+COOKIE_NAME = "bw_session"
+SESSION_DAYS = int(os.getenv("SESSION_DAYS", "30"))
 
+ALLOWED_ORIGINS = [
+    "https://therevangaming.github.io",
+    "http://127.0.0.1:5050",
+    "http://localhost:5050",
+]
 
-# =========================
-# APP
-# =========================
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# ========= APP =========
 app = FastAPI(title=APP_NAME)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS if ALLOWED_ORIGINS != ["*"] else ["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
-# =========================
-# DB UTIL
-# =========================
-def now_utc() -> datetime:
-    return datetime.now(timezone.utc)
-
+# ========= DB =========
 def now_utc_iso() -> str:
-    return now_utc().isoformat()
+    return datetime.now(timezone.utc).isoformat()
+
+def iso_in_days(days: int) -> str:
+    return (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
 
 def db_connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
-def apply_schema_sql_file(conn: sqlite3.Connection) -> None:
-    schema_path = os.path.join(os.path.dirname(__file__), "db", "schema.sql")
-    if os.path.exists(schema_path):
-        with open(schema_path, "r", encoding="utf-8") as f:
-            sql = f.read()
-        if sql.strip():
-            conn.executescript(sql)
-
-def apply_min_schema(conn: sqlite3.Connection) -> None:
-    # Minimal schema to guarantee login/messages/canon/analytics/subscriptions work even if schema.sql changes.
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            pass_hash TEXT NOT NULL,
-            pass_salt TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            is_owner INTEGER NOT NULL DEFAULT 0,
-            stripe_customer_id TEXT DEFAULT '',
-            plan TEXT DEFAULT 'free',
-            subscription_status TEXT DEFAULT 'none'
-        );
-
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            token TEXT UNIQUE NOT NULL,
-            created_at TEXT NOT NULL,
-            expires_at TEXT NOT NULL,
-            is_owner INTEGER NOT NULL DEFAULT 0,
-            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS projects (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            UNIQUE(user_id, name),
-            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            tab TEXT NOT NULL,
-            role TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS canon_entries (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            project_id INTEGER DEFAULT NULL,
-            tab TEXT NOT NULL,
-            title TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE SET NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS analytics_events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            event TEXT NOT NULL,
-            meta_json TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS subscriptions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            stripe_customer_id TEXT NOT NULL,
-            stripe_subscription_id TEXT NOT NULL,
-            status TEXT NOT NULL,
-            plan TEXT NOT NULL,
-            current_period_end TEXT DEFAULT '',
-            created_at TEXT NOT NULL,
-            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-        """
-    )
-
 def init_db() -> None:
+    schema_path = os.path.join(os.path.dirname(__file__), "db", "schema.sql")
+    if not os.path.exists(schema_path):
+        return
     conn = db_connect()
     try:
-        # Try schema.sql first, but NEVER let it brick startup
-        try:
-            apply_schema_sql_file(conn)
-        except Exception as e:
-            print(f"[init_db] Error applying schema.sql: {e}")
-
-        # Always ensure minimum tables exist
-        apply_min_schema(conn)
+        with open(schema_path, "r", encoding="utf-8") as f:
+            conn.executescript(f.read())
         conn.commit()
-        print("[init_db] DB ready.")
+        print("[init_db] Applied schema.sql successfully.")
+    except Exception as e:
+        print("[init_db] Error applying schema:", e)
     finally:
         conn.close()
 
 
-@app.on_event("startup")
-def on_startup():
-    init_db()
+# ========= MODELS =========
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class GenerateRequest(BaseModel):
+    tab: str
+    prompt: str
+    project: Optional[str] = None
+
+class SaveCanonRequest(BaseModel):
+    tab: str
+    title: str
+    content: str
+    project: Optional[str] = None
+
+class OwnerUnlockRequest(BaseModel):
+    code: str
+
+class CheckoutRequest(BaseModel):
+    plan: str  # basic | pro | patron
 
 
-# =========================
-# AUTH UTILS
-# =========================
-def pbkdf2_hash(password: str, salt_b64: str) -> str:
-    salt = base64.b64decode(salt_b64.encode("utf-8"))
-    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 200_000)
-    return base64.b64encode(dk).decode("utf-8")
+# ========= HELPERS =========
+def hash_password(pw: str) -> str:
+    return pwd_context.hash(pw)
 
-def new_salt_b64() -> str:
-    return base64.b64encode(secrets.token_bytes(16)).decode("utf-8")
-
-def make_session_token() -> str:
-    return secrets.token_urlsafe(32)
-
-def cookie_secure_flag(request: Request) -> bool:
-    # "auto": secure if https
-    if COOKIE_SECURE.lower() == "true":
-        return True
-    if COOKIE_SECURE.lower() == "false":
-        return False
-    return request.url.scheme == "https"
-
-def set_session_cookie(response: Response, request: Request, token: str) -> None:
-    kwargs = {
-        "key": COOKIE_NAME,
-        "value": token,
-        "httponly": True,
-        "secure": cookie_secure_flag(request),
-        "samesite": COOKIE_SAMESITE,
-        "path": "/",
-    }
-    if COOKIE_DOMAIN.strip():
-        kwargs["domain"] = COOKIE_DOMAIN.strip()
-    response.set_cookie(**kwargs)
-
-def clear_session_cookie(response: Response) -> None:
-    kwargs = {
-        "key": COOKIE_NAME,
-        "value": "",
-        "httponly": True,
-        "secure": False,
-        "samesite": COOKIE_SAMESITE,
-        "path": "/",
-        "max_age": 0,
-        "expires": 0,
-    }
-    if COOKIE_DOMAIN.strip():
-        kwargs["domain"] = COOKIE_DOMAIN.strip()
-    response.set_cookie(**kwargs)
-
-def get_session_token_from_request(request: Request) -> str:
-    return request.cookies.get(COOKIE_NAME, "") or ""
-
-
-def get_current_user(request: Request) -> sqlite3.Row:
-    token = get_session_token_from_request(request)
-    if not token:
-        raise HTTPException(status_code=401, detail="Not logged in")
-
-    conn = db_connect()
+def verify_password(pw: str, pw_hash: str) -> bool:
     try:
-        sess = conn.execute(
-            "SELECT * FROM sessions WHERE token = ?",
-            (token,),
-        ).fetchone()
-        if not sess:
-            raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
-
-        # Expiry check
-        expires_at = datetime.fromisoformat(sess["expires_at"])
-        if expires_at < now_utc():
-            conn.execute("DELETE FROM sessions WHERE id = ?", (sess["id"],))
-            conn.commit()
-            raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
-
-        user = conn.execute("SELECT * FROM users WHERE id = ?", (sess["user_id"],)).fetchone()
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-
-        # attach session owner flag as synthetic column by copying into dict-ish row usage
-        # (we just re-fetch in helpers when needed)
-        return user
-    finally:
-        conn.close()
-
-
-def is_owner_session(request: Request) -> bool:
-    token = get_session_token_from_request(request)
-    if not token:
-        return False
-    conn = db_connect()
-    try:
-        sess = conn.execute("SELECT is_owner FROM sessions WHERE token = ?", (token,)).fetchone()
-        return bool(sess and int(sess["is_owner"]) == 1)
-    finally:
-        conn.close()
-
-
-# =========================
-# SUBSCRIPTION / ACCESS
-# =========================
-def stripe_configured() -> bool:
-    return bool(STRIPE_SECRET_KEY) and (stripe is not None)
-
-def price_id_for_plan(plan: str) -> str:
-    plan = (plan or "").strip().lower()
-    if plan == "basic":
-        return STRIPE_BASIC_PRICE_ID
-    if plan == "pro":
-        return STRIPE_PRO_PRICE_ID
-    if plan == "patron":
-        return STRIPE_PATRON_PRICE_ID
-    return ""
-
-def user_in_free_trial(user: sqlite3.Row) -> bool:
-    try:
-        created = datetime.fromisoformat(user["created_at"])
+        return pwd_context.verify(pw, pw_hash)
     except Exception:
-        return True
-    return (created + timedelta(days=30)) > now_utc()
+        return False
 
-def user_has_active_subscription(user_id: int) -> bool:
-    conn = db_connect()
-    try:
-        row = conn.execute(
-            "SELECT status FROM subscriptions WHERE user_id = ? ORDER BY id DESC LIMIT 1",
-            (user_id,),
-        ).fetchone()
-        if not row:
-            return False
-        return (row["status"] or "").lower() in ("active", "trialing")
-    finally:
-        conn.close()
-
-def require_access(request: Request, user: sqlite3.Row) -> None:
-    # Owner always allowed
-    if is_owner_session(request) or int(user.get("is_owner", 0) or 0) == 1:
-        return
-    # Trial allowed
-    if user_in_free_trial(user):
-        return
-    # Paid subscription required
-    if user_has_active_subscription(int(user["id"])):
-        return
-    raise HTTPException(status_code=402, detail="Subscription required. Please choose a plan to continue.")
-
-
-# =========================
-# TAB / HISTORY
-# =========================
 def normalize_tab(tab: str) -> str:
     t = (tab or "").strip().lower()
-    mapping = {
-        "chat": "chat",
-        "story": "writing",
-        "book": "writing",
-        "writing": "writing",
-        "game": "gamedev",
-        "gamedev": "gamedev",
+    aliases = {
         "music": "musicdev",
-        "musicdev": "musicdev",
+        "game": "gamedev",
         "image": "imagelab",
-        "imagelab": "imagelab",
         "voice": "voicelab",
-        "voicelab": "voicelab",
         "designer": "gamedesigner",
-        "gamedesigner": "gamedesigner",
+        "writing": "writing",
+        "book": "writing",
+        "story": "writing",
+        "chat": "chat",
     }
-    return mapping.get(t, t if t else "chat")
-
-def store_message(user_id: int, tab: str, role: str, content: str) -> None:
-    conn = db_connect()
-    try:
-        conn.execute(
-            "INSERT INTO messages (user_id, tab, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
-            (user_id, normalize_tab(tab), role, content, now_utc_iso()),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-def load_recent_messages(user_id: int, tab: str, limit: int = 18) -> List[Dict[str, str]]:
-    conn = db_connect()
-    try:
-        rows = conn.execute(
-            "SELECT role, content FROM messages WHERE user_id = ? AND tab = ? ORDER BY id DESC LIMIT ?",
-            (user_id, normalize_tab(tab), limit),
-        ).fetchall()
-        rows = list(reversed(rows))
-        return [{"role": r["role"], "content": r["content"]} for r in rows]
-    finally:
-        conn.close()
+    return aliases.get(t, t or "chat")
 
 def system_prompt_for_tab(tab: str) -> str:
     base = (
         "You are Book Worm AI Studio. Be direct, helpful, and consistent.\n"
         "Always continue from the user's last message without re-asking what they already said.\n"
-        "If you offer options, and the user picks one, proceed immediately.\n"
+        "If you offer options and the user picks one, proceed immediately.\n"
+        "Be practical and implementation-oriented.\n"
     )
     tab = normalize_tab(tab)
     if tab == "musicdev":
@@ -420,398 +155,428 @@ def system_prompt_for_tab(tab: str) -> str:
     if tab == "imagelab":
         return base + "Focus on image prompts, art direction, composition, style consistency, and visual pipelines."
     if tab == "voicelab":
-        return base + "Focus on voice acting workflows, dialogue writing, narration, casting/AI voice pipelines (no illegal content)."
+        return base + "Focus on voice acting workflows, dialogue writing, narration, casting/AI voice pipelines."
     if tab == "gamedesigner":
-        return base + "Focus on tabletop/board/card game design (DnD-like), TCGs (MTG/Pokémon/Yu-Gi-Oh-like), balancing, and export-ready rules/content."
+        return base + "Focus on tabletop/board/card game design, rule systems, balancing, and exportable content."
     if tab == "writing":
         return base + "Focus on storytelling, outlines, prose, continuity, and canon-friendly expansions."
     return base + "General chat mode."
 
+def ensure_project(conn: sqlite3.Connection, user_id: int, project_name: Optional[str]) -> Optional[int]:
+    if not project_name:
+        return None
+    name = project_name.strip()
+    if not name:
+        return None
+    row = conn.execute(
+        "SELECT id FROM projects WHERE user_id=? AND name=?",
+        (user_id, name),
+    ).fetchone()
+    if row:
+        return int(row["id"])
+    conn.execute(
+        "INSERT INTO projects (user_id, name, created_at) VALUES (?, ?, ?)",
+        (user_id, name, now_utc_iso()),
+    )
+    conn.commit()
+    row2 = conn.execute(
+        "SELECT id FROM projects WHERE user_id=? AND name=?",
+        (user_id, name),
+    ).fetchone()
+    return int(row2["id"]) if row2 else None
 
-# =========================
-# MODELS
-# =========================
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
+def set_session_cookie(resp: Response, token: str) -> None:
+    # SameSite=Lax works well for normal usage
+    resp.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=bool(PUBLIC_BASE_URL.startswith("https://")),
+        samesite="lax",
+        max_age=SESSION_DAYS * 24 * 60 * 60,
+        path="/",
+    )
 
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-class OwnerLoginRequest(BaseModel):
-    code: str
-
-class GenerateRequest(BaseModel):
-    tab: str = "chat"
-    prompt: str
-
-class SaveCanonRequest(BaseModel):
-    tab: str = "chat"
-    title: str
-    content: str
-    project_id: Optional[int] = None
+def clear_session_cookie(resp: Response) -> None:
+    resp.delete_cookie(COOKIE_NAME, path="/")
 
 
-# =========================
-# ROUTES: UI
-# =========================
+# ========= AUTH DEPENDENCIES =========
+def get_current_session(request: Request) -> Optional[sqlite3.Row]:
+    token = request.cookies.get(COOKIE_NAME)
+    if not token:
+        return None
+    conn = db_connect()
+    try:
+        row = conn.execute(
+            "SELECT token, user_id, is_owner, expires_at FROM sessions WHERE token=?",
+            (token,),
+        ).fetchone()
+        if not row:
+            return None
+        # expiry check
+        try:
+            exp = datetime.fromisoformat(row["expires_at"])
+            if exp < datetime.now(timezone.utc):
+                conn.execute("DELETE FROM sessions WHERE token=?", (token,))
+                conn.commit()
+                return None
+        except Exception:
+            return None
+        return row
+    finally:
+        conn.close()
+
+def get_current_user(request: Request) -> sqlite3.Row:
+    sess = get_current_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="Not logged in")
+    conn = db_connect()
+    try:
+        u = conn.execute("SELECT * FROM users WHERE id=?", (int(sess["user_id"]),)).fetchone()
+        if not u:
+            raise HTTPException(status_code=401, detail="Not logged in")
+        return u
+    finally:
+        conn.close()
+
+def require_owner(request: Request) -> sqlite3.Row:
+    sess = get_current_session(request)
+    if not sess or int(sess["is_owner"]) != 1:
+        raise HTTPException(status_code=403, detail="Owner/Admin not unlocked")
+    conn = db_connect()
+    try:
+        u = conn.execute("SELECT * FROM users WHERE id=?", (int(sess["user_id"]),)).fetchone()
+        if not u:
+            raise HTTPException(status_code=401, detail="Not logged in")
+        return u
+    finally:
+        conn.close()
+
+
+# ========= STARTUP =========
+@app.on_event("startup")
+def on_startup():
+    init_db()
+    if stripe is not None and STRIPE_SECRET_KEY:
+        stripe.api_key = STRIPE_SECRET_KEY
+
+
+# ========= STATIC HOME =========
 @app.get("/", response_class=HTMLResponse)
-def root():
-    # Serve studio UI if present
+def home():
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         with open(index_path, "r", encoding="utf-8") as f:
             return HTMLResponse(f.read())
-    return HTMLResponse("<h1>Book Worm AI backend is running.</h1><p>Add /static/index.html</p>")
+    return HTMLResponse("<h1>Book Worm AI</h1><p>Missing static/index.html</p>")
 
 @app.get("/health")
 def health():
     return {"ok": True, "app": APP_NAME, "time": now_utc_iso()}
 
 
-# =========================
-# ROUTES: AUTH
-# =========================
-@app.post("/auth/register")
-def auth_register(req: RegisterRequest, request: Request):
-    email = req.email.strip().lower()
-    password = (req.password or "").strip()
-    if len(password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
-
-    salt = new_salt_b64()
-    pwh = pbkdf2_hash(password, salt)
-
-    conn = db_connect()
-    try:
-        try:
-            conn.execute(
-                "INSERT INTO users (email, pass_hash, pass_salt, created_at) VALUES (?, ?, ?, ?)",
-                (email, pwh, salt, now_utc_iso()),
-            )
-            conn.commit()
-        except sqlite3.IntegrityError:
-            raise HTTPException(status_code=409, detail="Account already exists. Please log in.")
-
-        user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-        if not user:
-            raise HTTPException(status_code=500, detail="Registration failed")
-
-        token = make_session_token()
-        expires = now_utc() + timedelta(days=SESSION_TTL_DAYS)
-        conn.execute(
-            "INSERT INTO sessions (user_id, token, created_at, expires_at, is_owner) VALUES (?, ?, ?, ?, 0)",
-            (int(user["id"]), token, now_utc_iso(), expires.isoformat()),
-        )
-        conn.commit()
-
-        resp = JSONResponse({"ok": True, "email": email})
-        set_session_cookie(resp, request, token)
-        return resp
-    finally:
-        conn.close()
-
-@app.post("/auth/login")
-def auth_login(req: LoginRequest, request: Request):
-    email = req.email.strip().lower()
-    password = (req.password or "").strip()
-
-    conn = db_connect()
-    try:
-        user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-
-        expected = pbkdf2_hash(password, user["pass_salt"])
-        if not hmac.compare_digest(expected, user["pass_hash"]):
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-
-        token = make_session_token()
-        expires = now_utc() + timedelta(days=SESSION_TTL_DAYS)
-        conn.execute(
-            "INSERT INTO sessions (user_id, token, created_at, expires_at, is_owner) VALUES (?, ?, ?, ?, 0)",
-            (int(user["id"]), token, now_utc_iso(), expires.isoformat()),
-        )
-        conn.commit()
-
-        resp = JSONResponse({"ok": True, "email": email})
-        set_session_cookie(resp, request, token)
-        return resp
-    finally:
-        conn.close()
-
-@app.post("/auth/logout")
-def auth_logout(request: Request):
-    token = get_session_token_from_request(request)
-    if token:
-        conn = db_connect()
-        try:
-            conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
-            conn.commit()
-        finally:
-            conn.close()
-    resp = JSONResponse({"ok": True})
-    clear_session_cookie(resp)
-    return resp
-
-@app.get("/auth/me")
-def auth_me(request: Request):
-    token = get_session_token_from_request(request)
-    if not token:
-        return {"logged_in": False}
-
-    conn = db_connect()
-    try:
-        sess = conn.execute("SELECT * FROM sessions WHERE token = ?", (token,)).fetchone()
-        if not sess:
-            return {"logged_in": False}
-
-        expires_at = datetime.fromisoformat(sess["expires_at"])
-        if expires_at < now_utc():
-            conn.execute("DELETE FROM sessions WHERE id = ?", (sess["id"],))
-            conn.commit()
-            return {"logged_in": False}
-
-        user = conn.execute("SELECT * FROM users WHERE id = ?", (sess["user_id"],)).fetchone()
-        if not user:
-            return {"logged_in": False}
-
-        return {
-            "logged_in": True,
-            "email": user["email"],
-            "is_owner": bool(sess["is_owner"]),
-            "trial_active": user_in_free_trial(user),
-            "subscription_active": user_has_active_subscription(int(user["id"])),
-        }
-    finally:
-        conn.close()
-
-@app.post("/auth/owner-login")
-def owner_login(req: OwnerLoginRequest, request: Request):
-    if not BOOKWORM_OWNER_CODE:
-        raise HTTPException(status_code=500, detail="Owner code not configured on server.")
-    if not hmac.compare_digest((req.code or ""), BOOKWORM_OWNER_CODE):
-        raise HTTPException(status_code=401, detail="Invalid owner code")
-
-    # Must be logged in as a user first
-    user = get_current_user(request)
-
-    token = get_session_token_from_request(request)
-    if not token:
-        raise HTTPException(status_code=401, detail="Not logged in")
-
-    conn = db_connect()
-    try:
-        conn.execute("UPDATE sessions SET is_owner = 1 WHERE token = ?", (token,))
-        conn.execute("UPDATE users SET is_owner = 1 WHERE id = ?", (int(user["id"]),))
-        conn.commit()
-    finally:
-        conn.close()
-
-    return {"ok": True, "owner": True}
-
-
-# =========================
-# ROUTES: SETTINGS / ADMIN INFO
-# =========================
+# ========= SETTINGS =========
 @app.get("/api/settings")
 def api_settings(request: Request):
-    # not requiring login for baseline UI boot, but include user info if logged in
+    sess = get_current_session(request)
     me = {"logged_in": False}
-    try:
-        me = auth_me(request)
-    except Exception:
-        pass
+    if sess:
+        conn = db_connect()
+        try:
+            u = conn.execute("SELECT email FROM users WHERE id=?", (int(sess["user_id"]),)).fetchone()
+            if u:
+                me = {
+                    "logged_in": True,
+                    "email": u["email"],
+                    "is_owner": bool(int(sess["is_owner"])),
+                }
+        finally:
+            conn.close()
+
+    tabs = ["chat", "writing", "gamedev", "musicdev", "imagelab", "voicelab", "gamedesigner"]
 
     return {
         "app": APP_NAME,
-        "studio_url": str(request.base_url).rstrip("/"),
-        "tabs": ["chat", "writing", "gamedev", "musicdev", "imagelab", "voicelab", "gamedesigner"],
-        "stripe_ready": stripe_configured() and bool(STRIPE_BASIC_PRICE_ID or STRIPE_PRO_PRICE_ID or STRIPE_PATRON_PRICE_ID),
+        "studio_url": PUBLIC_BASE_URL or "http://127.0.0.1:5050",
+        "tabs": tabs,
+        "stripe_ready": bool(STRIPE_SECRET_KEY and stripe is not None and STRIPE_BASIC_PRICE_ID and STRIPE_PRO_PRICE_ID and STRIPE_PATRON_PRICE_ID),
         "me": me,
     }
 
-@app.get("/admin/analytics")
-def admin_analytics(request: Request, user: sqlite3.Row = Depends(get_current_user)):
-    if not is_owner_session(request):
-        raise HTTPException(status_code=403, detail="Owner only")
 
+# ========= AUTH ROUTES =========
+@app.post("/auth/register")
+def auth_register(req: RegisterRequest):
     conn = db_connect()
     try:
-        users = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
-        events = conn.execute("SELECT COUNT(*) AS c FROM analytics_events").fetchone()["c"]
-        subs = conn.execute("SELECT COUNT(*) AS c FROM subscriptions WHERE status IN ('active','trialing')").fetchone()["c"]
+        existing = conn.execute("SELECT id FROM users WHERE email=?", (req.email.lower(),)).fetchone()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already registered")
 
-        by_event = conn.execute(
-            "SELECT event, COUNT(*) AS c FROM analytics_events GROUP BY event ORDER BY c DESC LIMIT 20"
-        ).fetchall()
-
-        return {
-            "users": users,
-            "events": events,
-            "active_subscriptions": subs,
-            "top_events": [{"event": r["event"], "count": r["c"]} for r in by_event],
-        }
-    finally:
-        conn.close()
-
-
-# =========================
-# ROUTES: CANON
-# =========================
-@app.post("/canon/save")
-def save_to_canon(req: SaveCanonRequest, request: Request, user: sqlite3.Row = Depends(get_current_user)):
-    require_access(request, user)
-
-    title = (req.title or "").strip()
-    content = (req.content or "").strip()
-    tab = normalize_tab(req.tab)
-
-    if not title or not content:
-        raise HTTPException(status_code=400, detail="Title and content are required")
-
-    conn = db_connect()
-    try:
+        pw_hash = hash_password(req.password)
         conn.execute(
-            "INSERT INTO canon_entries (user_id, project_id, tab, title, content, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (int(user["id"]), req.project_id, tab, title, content, now_utc_iso()),
-        )
-        conn.execute(
-            "INSERT INTO analytics_events (user_id, event, meta_json, created_at) VALUES (?, 'canon_save', ?, ?)",
-            (int(user["id"]), json.dumps({"tab": tab}), now_utc_iso()),
+            "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
+            (req.email.lower(), pw_hash, now_utc_iso()),
         )
         conn.commit()
+
+        # create starter subscription record
+        user = conn.execute("SELECT id FROM users WHERE email=?", (req.email.lower(),)).fetchone()
+        if user:
+            conn.execute(
+                "INSERT OR REPLACE INTO subscriptions (user_id, plan, status, updated_at) VALUES (?, 'free', 'active', ?)",
+                (int(user["id"]), now_utc_iso()),
+            )
+            conn.commit()
+
         return {"ok": True}
     finally:
         conn.close()
 
-@app.get("/canon/list")
-def list_canon(request: Request, tab: str = "", project_id: Optional[int] = None, user: sqlite3.Row = Depends(get_current_user)):
-    require_access(request, user)
-
-    tab_norm = normalize_tab(tab) if tab else ""
+@app.post("/auth/login")
+def auth_login(req: LoginRequest, response: Response):
     conn = db_connect()
     try:
-        if tab_norm and project_id is not None:
-            rows = conn.execute(
-                "SELECT * FROM canon_entries WHERE user_id = ? AND tab = ? AND project_id = ? ORDER BY id DESC LIMIT 200",
-                (int(user["id"]), tab_norm, project_id),
-            ).fetchall()
-        elif tab_norm:
-            rows = conn.execute(
-                "SELECT * FROM canon_entries WHERE user_id = ? AND tab = ? ORDER BY id DESC LIMIT 200",
-                (int(user["id"]), tab_norm),
-            ).fetchall()
-        elif project_id is not None:
-            rows = conn.execute(
-                "SELECT * FROM canon_entries WHERE user_id = ? AND project_id = ? ORDER BY id DESC LIMIT 200",
-                (int(user["id"]), project_id),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM canon_entries WHERE user_id = ? ORDER BY id DESC LIMIT 200",
-                (int(user["id"]),),
-            ).fetchall()
+        u = conn.execute("SELECT * FROM users WHERE email=?", (req.email.lower(),)).fetchone()
+        if not u or not verify_password(req.password, u["password_hash"]):
+            raise HTTPException(status_code=401, detail="Invalid email or password")
 
-        return {
-            "items": [
-                {
-                    "id": r["id"],
-                    "tab": r["tab"],
-                    "title": r["title"],
-                    "content": r["content"],
-                    "project_id": r["project_id"],
-                    "created_at": r["created_at"],
-                }
-                for r in rows
-            ]
-        }
+        token = secrets.token_urlsafe(32)
+        conn.execute(
+            "INSERT INTO sessions (token, user_id, is_owner, created_at, expires_at) VALUES (?, ?, 0, ?, ?)",
+            (token, int(u["id"]), now_utc_iso(), iso_in_days(SESSION_DAYS)),
+        )
+        conn.commit()
+
+        set_session_cookie(response, token)
+        return {"ok": True, "email": u["email"]}
+    finally:
+        conn.close()
+
+@app.post("/auth/logout")
+def auth_logout(request: Request, response: Response):
+    token = request.cookies.get(COOKIE_NAME)
+    if token:
+        conn = db_connect()
+        try:
+            conn.execute("DELETE FROM sessions WHERE token=?", (token,))
+            conn.commit()
+        finally:
+            conn.close()
+    clear_session_cookie(response)
+    return {"ok": True}
+
+@app.get("/auth/me")
+def auth_me(request: Request):
+    sess = get_current_session(request)
+    if not sess:
+        return {"logged_in": False}
+    conn = db_connect()
+    try:
+        u = conn.execute("SELECT email FROM users WHERE id=?", (int(sess["user_id"]),)).fetchone()
+        if not u:
+            return {"logged_in": False}
+        return {"logged_in": True, "email": u["email"], "is_owner": bool(int(sess["is_owner"]))}
     finally:
         conn.close()
 
 
-# =========================
-# ROUTES: GENERATION
-# =========================
-@app.post("/generate")
-def generate(req: GenerateRequest, request: Request, user: sqlite3.Row = Depends(get_current_user)):
-    # Gate for paid access (trial/paid/owner)
-    require_access(request, user)
+# ========= OWNER / ADMIN =========
+@app.post("/owner/unlock")
+def owner_unlock(req: OwnerUnlockRequest, request: Request, response: Response):
+    # must be logged in first
+    sess = get_current_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="Not logged in")
 
+    if not BOOKWORM_OWNER_CODE:
+        raise HTTPException(status_code=500, detail="BOOKWORM_OWNER_CODE not configured on server")
+
+    if (req.code or "").strip() != BOOKWORM_OWNER_CODE.strip():
+        raise HTTPException(status_code=403, detail="Invalid owner code")
+
+    conn = db_connect()
+    try:
+        conn.execute("UPDATE sessions SET is_owner=1 WHERE token=?", (sess["token"],))
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {"ok": True}
+
+@app.post("/owner/lock")
+def owner_lock(request: Request):
+    sess = get_current_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="Not logged in")
+    conn = db_connect()
+    try:
+        conn.execute("UPDATE sessions SET is_owner=0 WHERE token=?", (sess["token"],))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.get("/debug/owner")
+def debug_owner():
+    # Safe debug: no secret revealed
+    v = os.getenv("BOOKWORM_OWNER_CODE", "")
+    return {"owner_env_present": bool(v), "owner_len": len(v) if v else 0}
+
+
+# ========= MESSAGES / HISTORY =========
+def store_message(user_id: int, tab: str, role: str, content: str, project_id: Optional[int]) -> None:
+    conn = db_connect()
+    try:
+        conn.execute(
+            "INSERT INTO messages (user_id, project_id, tab, role, content, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, project_id, tab, role, content, now_utc_iso()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+def load_recent_messages(user_id: int, tab: str, project_id: Optional[int], limit: int = 18) -> List[Dict[str, Any]]:
+    conn = db_connect()
+    try:
+        if project_id is None:
+            rows = conn.execute(
+                "SELECT role, content FROM messages WHERE user_id=? AND tab=? AND project_id IS NULL ORDER BY id DESC LIMIT ?",
+                (user_id, tab, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT role, content FROM messages WHERE user_id=? AND tab=? AND project_id=? ORDER BY id DESC LIMIT ?",
+                (user_id, tab, project_id, limit),
+            ).fetchall()
+        items = [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
+        return items
+    finally:
+        conn.close()
+
+
+# ========= CANON =========
+@app.post("/canon/save")
+def canon_save(req: SaveCanonRequest, user: sqlite3.Row = Depends(get_current_user)):
+    tab = normalize_tab(req.tab)
+    if not req.title.strip() or not req.content.strip():
+        raise HTTPException(status_code=400, detail="title and content required")
+
+    conn = db_connect()
+    try:
+        project_id = ensure_project(conn, int(user["id"]), req.project)
+        conn.execute(
+            "INSERT INTO canon_items (user_id, project_id, tab, title, content, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (int(user["id"]), project_id, tab, req.title.strip(), req.content.strip(), now_utc_iso()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {"ok": True}
+
+@app.get("/canon/list")
+def canon_list(tab: str = "chat", project: Optional[str] = None, user: sqlite3.Row = Depends(get_current_user)):
+    tab = normalize_tab(tab)
+    conn = db_connect()
+    try:
+        pid = ensure_project(conn, int(user["id"]), project) if project else None
+        if pid is None:
+            rows = conn.execute(
+                "SELECT id, tab, title, content, created_at FROM canon_items WHERE user_id=? AND tab=? AND project_id IS NULL ORDER BY id DESC LIMIT 200",
+                (int(user["id"]), tab),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id, tab, title, content, created_at FROM canon_items WHERE user_id=? AND tab=? AND project_id=? ORDER BY id DESC LIMIT 200",
+                (int(user["id"]), tab, pid),
+            ).fetchall()
+        return {"items": [dict(r) for r in rows]}
+    finally:
+        conn.close()
+
+
+# ========= GENERATE =========
+@app.post("/generate")
+def generate(req: GenerateRequest, user: sqlite3.Row = Depends(get_current_user)):
     tab = normalize_tab(req.tab)
     prompt = (req.prompt or "").strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt is required")
 
-    store_message(int(user["id"]), tab, "user", prompt)
+    conn = db_connect()
+    try:
+        project_id = ensure_project(conn, int(user["id"]), req.project)
+    finally:
+        conn.close()
+
+    store_message(int(user["id"]), tab, "user", prompt, project_id)
 
     if not OPENAI_API_KEY or OpenAI is None:
-        answer = (
+        text = (
             "⚠ OPENAI_API_KEY is not configured on this server.\n"
-            "Set OPENAI_API_KEY in Render Environment Variables, then restart the service."
+            "Set OPENAI_API_KEY in Render Environment Variables, then redeploy."
         )
-        store_message(int(user["id"]), tab, "assistant", answer)
-        return {"response": answer}
+        store_message(int(user["id"]), tab, "assistant", text, project_id)
+        return {"response": text}
 
     client = OpenAI(api_key=OPENAI_API_KEY)
-    history = load_recent_messages(int(user["id"]), tab, limit=18)
+    history = load_recent_messages(int(user["id"]), tab, project_id, limit=18)
     system = system_prompt_for_tab(tab)
-
-    # Build Responses API input safely
-    input_msgs: List[Dict[str, Any]] = [{"role": "system", "content": system}]
-    input_msgs.extend(history)
 
     try:
         resp = client.responses.create(
             model=OPENAI_MODEL,
-            input=input_msgs,
+            input=[
+                {"role": "system", "content": system},
+                *history
+            ],
         )
-
-        # Robust extraction
-        text = ""
-        if hasattr(resp, "output_text") and getattr(resp, "output_text"):
-            text = getattr(resp, "output_text")  # type: ignore
-
-        if not text:
+        try:
+            text = resp.output_text  # type: ignore
+        except Exception:
+            text = ""
             out = getattr(resp, "output", None)
             if out:
                 for item in out:
                     for c in getattr(item, "content", []) or []:
-                        if getattr(c, "type", "") in ("output_text", "text"):
+                        if getattr(c, "type", "") == "output_text":
                             text += getattr(c, "text", "") or ""
-
         if not text:
             text = "⚠ No text returned."
-
     except Exception as e:
         text = f"⚠ AI error: {str(e)}"
 
-    store_message(int(user["id"]), tab, "assistant", text)
+    store_message(int(user["id"]), tab, "assistant", text, project_id)
 
-    # analytics
-    conn = db_connect()
+    conn2 = db_connect()
     try:
-        conn.execute(
+        conn2.execute(
             "INSERT INTO analytics_events (user_id, event, meta_json, created_at) VALUES (?, 'generate', ?, ?)",
             (int(user["id"]), json.dumps({"tab": tab}), now_utc_iso()),
         )
-        conn.commit()
+        conn2.commit()
     finally:
-        conn.close()
+        conn2.close()
 
     return {"response": text}
 
 
-# IMPORTANT: alias routes so your UI can call either one without breaking
-@app.post("/api/generate")
-def api_generate(req: GenerateRequest, request: Request, user: sqlite3.Row = Depends(get_current_user)):
-    return generate(req, request, user)
+# ========= STRIPE =========
+def stripe_configured() -> bool:
+    return bool(STRIPE_SECRET_KEY) and (stripe is not None)
 
+def price_id_for_plan(plan: str) -> str:
+    p = (plan or "").strip().lower()
+    if p == "basic":
+        return STRIPE_BASIC_PRICE_ID
+    if p == "pro":
+        return STRIPE_PRO_PRICE_ID
+    if p == "patron":
+        return STRIPE_PATRON_PRICE_ID
+    return ""
 
-# =========================
-# STRIPE: DEBUG
-# =========================
 @app.get("/debug/stripe")
 def debug_stripe():
     return {
@@ -825,145 +590,120 @@ def debug_stripe():
         "stripe_import_ok": stripe is not None,
     }
 
-@app.get("/debug/owner")
-def debug_owner():
-    # safe debug: doesn't reveal the code, only whether it exists
-    v = os.getenv("BOOKWORM_OWNER_CODE", "")
-    return {
-        "owner_env_present": bool(v),
-        "owner_len": len(v) if v else 0,
-    }
-
-# =========================
-# STRIPE: CHECKOUT + WEBHOOK
-# =========================
-class CheckoutRequest(BaseModel):
-    plan: str  # basic/pro/patron
-
-@app.post("/stripe/checkout")
-def stripe_checkout(req: CheckoutRequest, request: Request, user: sqlite3.Row = Depends(get_current_user)):
+@app.post("/stripe/create-checkout-session")
+def stripe_create_checkout(req: CheckoutRequest, request: Request, user: sqlite3.Row = Depends(get_current_user)):
     if not stripe_configured():
-        raise HTTPException(status_code=500, detail="Stripe not configured on server.")
+        raise HTTPException(status_code=500, detail="Stripe not configured on server")
+
     price_id = price_id_for_plan(req.plan)
     if not price_id:
-        raise HTTPException(status_code=400, detail="Invalid plan or missing price id.")
+        raise HTTPException(status_code=400, detail="Missing price id for plan")
 
-    base = FRONTEND_URL.strip() or str(request.base_url).rstrip("/")
-    success_url = f"{base}/?checkout=success"
-    cancel_url = f"{base}/?checkout=cancel"
+    # Where to return after checkout
+    base = PUBLIC_BASE_URL or "http://127.0.0.1:5050"
+    success_url = f"{base}/?stripe=success"
+    cancel_url = f"{base}/?stripe=cancel"
 
-    customer_email = user["email"]
-
+    # get or create customer id
+    conn = db_connect()
     try:
-        sess = stripe.checkout.Session.create(
-            mode="subscription",
-            line_items=[{"price": price_id, "quantity": 1}],
-            allow_promotion_codes=True,
-            customer_email=customer_email,
-            success_url=success_url,
-            cancel_url=cancel_url,
-            metadata={"user_id": str(user["id"]), "plan": req.plan},
-        )
-        return {"url": sess.url}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+        sub = conn.execute("SELECT stripe_customer_id FROM subscriptions WHERE user_id=?", (int(user["id"]),)).fetchone()
+        customer_id = sub["stripe_customer_id"] if sub else None
+        if not customer_id:
+            cust = stripe.Customer.create(email=user["email"])
+            customer_id = cust["id"]
+            conn.execute(
+                "INSERT OR REPLACE INTO subscriptions (user_id, plan, stripe_customer_id, status, updated_at) VALUES (?, 'free', ?, 'active', ?)",
+                (int(user["id"]), customer_id, now_utc_iso()),
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+    session = stripe.checkout.Session.create(
+        mode="subscription",
+        customer=customer_id,
+        line_items=[{"price": price_id, "quantity": 1}],
+        success_url=success_url,
+        cancel_url=cancel_url,
+        allow_promotion_codes=True,
+    )
+    return {"url": session["url"]}
 
 @app.post("/stripe/webhook")
 async def stripe_webhook(request: Request):
     if not stripe_configured() or not STRIPE_WEBHOOK_SECRET:
-        return JSONResponse({"ok": False, "detail": "Stripe not configured"}, status_code=500)
+        return JSONResponse({"ok": False, "detail": "Stripe webhook not configured"}, status_code=500)
 
     payload = await request.body()
-    sig_header = request.headers.get("stripe-signature", "")
+    sig = request.headers.get("stripe-signature", "")
 
     try:
-        event = stripe.Webhook.construct_event(  # type: ignore
-            payload=payload,
-            sig_header=sig_header,
-            secret=STRIPE_WEBHOOK_SECRET,
-        )
+        event = stripe.Webhook.construct_event(payload=payload, sig_header=sig, secret=STRIPE_WEBHOOK_SECRET)
     except Exception as e:
         return JSONResponse({"ok": False, "detail": f"Webhook error: {str(e)}"}, status_code=400)
 
     etype = event.get("type", "")
     obj = event.get("data", {}).get("object", {})
 
-    # We support: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted
-    conn = db_connect()
-    try:
-        if etype == "checkout.session.completed":
-            customer_id = obj.get("customer", "") or ""
-            subscription_id = obj.get("subscription", "") or ""
-            email = obj.get("customer_details", {}).get("email", "") or obj.get("customer_email", "") or ""
+    # Subscription updates
+    if etype in ("checkout.session.completed", "customer.subscription.created", "customer.subscription.updated"):
+        customer_id = obj.get("customer") or obj.get("customer_id")
+        subscription_id = obj.get("subscription") or obj.get("id")
+        status = obj.get("status", "active")
 
-            user_id = None
-            # Prefer metadata user_id if present
-            meta = obj.get("metadata", {}) or {}
-            if meta.get("user_id"):
-                try:
-                    user_id = int(meta["user_id"])
-                except Exception:
-                    user_id = None
-
-            if user_id is None and email:
-                u = conn.execute("SELECT id FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
-                if u:
-                    user_id = int(u["id"])
-
-            plan = (meta.get("plan") or "basic").strip().lower()
-            status = "trialing"
-
-            if user_id is not None:
-                # store customer id on user
-                conn.execute("UPDATE users SET stripe_customer_id = ? WHERE id = ?", (customer_id, user_id))
+        conn = db_connect()
+        try:
+            row = conn.execute("SELECT user_id FROM subscriptions WHERE stripe_customer_id=?", (customer_id,)).fetchone()
+            if row:
+                plan = "paid"
                 conn.execute(
-                    "INSERT INTO subscriptions (user_id, stripe_customer_id, stripe_subscription_id, status, plan, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                    (user_id, customer_id, subscription_id, status, plan, now_utc_iso()),
+                    "UPDATE subscriptions SET plan=?, stripe_subscription_id=?, status=?, updated_at=? WHERE user_id=?",
+                    (plan, subscription_id, status, now_utc_iso(), int(row["user_id"])),
                 )
                 conn.commit()
+        finally:
+            conn.close()
 
-        elif etype in ("customer.subscription.updated", "customer.subscription.deleted"):
-            customer_id = obj.get("customer", "") or ""
-            subscription_id = obj.get("id", "") or ""
-            status = (obj.get("status", "") or "none").lower()
-            plan = "basic"
-            try:
-                items = obj.get("items", {}).get("data", []) or []
-                if items:
-                    price = items[0].get("price", {})
-                    # If you want: map price.id -> plan
-                    pid = (price.get("id") or "").strip()
-                    if pid == STRIPE_PRO_PRICE_ID:
-                        plan = "pro"
-                    elif pid == STRIPE_PATRON_PRICE_ID:
-                        plan = "patron"
-                    else:
-                        plan = "basic"
-            except Exception:
-                pass
+    return {"ok": True}
 
-            # Find user by customer id
-            u = conn.execute("SELECT id FROM users WHERE stripe_customer_id = ?", (customer_id,)).fetchone()
-            if u:
-                user_id = int(u["id"])
-                # Upsert subscription row
-                existing = conn.execute(
-                    "SELECT id FROM subscriptions WHERE user_id = ? AND stripe_subscription_id = ?",
-                    (user_id, subscription_id),
-                ).fetchone()
-                if existing:
-                    conn.execute(
-                        "UPDATE subscriptions SET status = ?, plan = ? WHERE id = ?",
-                        (status, plan, int(existing["id"])),
-                    )
-                else:
-                    conn.execute(
-                        "INSERT INTO subscriptions (user_id, stripe_customer_id, stripe_subscription_id, status, plan, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                        (user_id, customer_id, subscription_id, status, plan, now_utc_iso()),
-                    )
-                conn.commit()
 
-        return {"ok": True}
+# ========= ADMIN =========
+@app.get("/admin/analytics")
+def admin_analytics(owner: sqlite3.Row = Depends(require_owner)):
+    conn = db_connect()
+    try:
+        rows = conn.execute(
+            "SELECT event, COUNT(*) as c FROM analytics_events GROUP BY event ORDER BY c DESC"
+        ).fetchall()
+        return {"events": [dict(r) for r in rows]}
+    finally:
+        conn.close()
 
+@app.get("/admin/users")
+def admin_users(owner: sqlite3.Row = Depends(require_owner)):
+    conn = db_connect()
+    try:
+        rows = conn.execute(
+            "SELECT id, email, created_at FROM users ORDER BY id DESC LIMIT 200"
+        ).fetchall()
+        return {"users": [dict(r) for r in rows]}
+    finally:
+        conn.close()
+
+@app.get("/admin/subscriptions")
+def admin_subscriptions(owner: sqlite3.Row = Depends(require_owner)):
+    conn = db_connect()
+    try:
+        rows = conn.execute(
+            """
+            SELECT u.email, s.plan, s.status, s.updated_at
+            FROM subscriptions s
+            JOIN users u ON u.id = s.user_id
+            ORDER BY s.updated_at DESC
+            LIMIT 200
+            """
+        ).fetchall()
+        return {"subs": [dict(r) for r in rows]}
     finally:
         conn.close()
