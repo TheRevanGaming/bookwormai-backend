@@ -1,252 +1,213 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Book Worm AI Studio</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="icon" href="/static/bookworm-192.png" />
 </head>
 <body>
-  <div id="app">
-    <!-- LEFT SIDEBAR: NAV / TABS -->
+  <div class="bg-grid"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <img class="brandLogo" src="/static/bookworm-192.png" alt="Book Worm AI" />
+      <div class="brandText">
+        <div class="brandName">Book Worm AI</div>
+        <div class="brandSub">Studio</div>
+      </div>
+    </div>
+
+    <div class="topbarRight">
+      <div id="userBadge" class="userBadge hidden"></div>
+      <button id="btnSettings" class="btn ghost" title="Settings">
+        ⚙ Settings
+      </button>
+      <button id="btnLogout" class="btn ghost hidden" title="Logout">
+        ↩ Logout
+      </button>
+    </div>
+  </header>
+
+  <main class="shell">
     <aside class="sidebar">
-      <div class="logo-block">
-        <div class="logo-circle">
-          <img src="/static/bookworm-192.png" alt="Book Worm AI" />
-        </div>
-        <div class="logo-text">
-          <h1>Book Worm AI</h1>
-          <span class="beta-tag">Creator Studio · Beta</span>
+      <div class="card">
+        <div class="cardTitle">Tabs</div>
+        <div class="tabList" id="tabList"></div>
+        <div class="divider"></div>
+        <button id="btnNewProject" class="btn primary full">＋ New Project</button>
+        <button id="btnSwitchProject" class="btn full">⇄ Switch Project</button>
+      </div>
+
+      <div class="card">
+        <div class="cardTitle">Tools</div>
+        <div class="toolList">
+          <button class="btn tool full" data-tool="save_to_canon">📌 Save to Canon</button>
+          <button class="btn tool full" data-tool="view_canon">📚 View Canon</button>
+          <button class="btn tool full" data-tool="pricing">💳 Pricing</button>
         </div>
       </div>
 
-      <!-- Account summary -->
-      <div class="account-summary">
-        <div id="account-status-line" class="account-status">
-          Not signed in
+      <div class="card hidden" id="adminCard">
+        <div class="cardTitle">Admin</div>
+        <div class="toolList">
+          <button class="btn tool full" data-tool="admin_analytics">📈 Analytics</button>
+          <button class="btn tool full" data-tool="admin_users">👤 Users</button>
+          <button class="btn tool full" data-tool="admin_subs">💰 Subscriptions</button>
         </div>
-        <div id="plan-pill" class="plan-pill plan-free">
-          Plan: Free
-        </div>
-      </div>
-
-      <!-- Navigation / Tabs -->
-      <nav class="nav-tabs">
-        <button class="nav-tab active" data-panel="chat" id="tab-chat">
-          General Chat
-        </button>
-        <button class="nav-tab" data-panel="storytelling" id="tab-storytelling">
-          Storytelling
-        </button>
-        <button class="nav-tab" data-panel="gamedev" id="tab-gamedev">
-          Game Development
-        </button>
-        <button class="nav-tab" data-panel="music" id="tab-music">
-          Music Development
-        </button>
-        <button class="nav-tab" data-panel="book" id="tab-book">
-          Book Writing
-        </button>
-        <button class="nav-tab" data-panel="language" id="tab-language">
-          Language Lab
-        </button>
-        <button class="nav-tab" data-panel="image" id="tab-image">
-          Image Lab
-        </button>
-        <button class="nav-tab" data-panel="voice" id="tab-voice">
-          Voice Lab
-        </button>
-        <button class="nav-tab" data-panel="coding" id="tab-coding">
-          Coding
-        </button>
-        <button class="nav-tab" data-panel="subscription" id="tab-subscription">
-          Subscription / Billing
-        </button>
-        <button class="nav-tab nav-tab-admin" data-panel="admin" id="tab-admin" style="display:none;">
-          Owner · Admin Dashboard
-        </button>
-      </nav>
-
-      <!-- Quick shortcuts -->
-      <div class="sidebar-footer">
-        <button id="btn-open-docs" class="sidebar-aux-btn">
-          API Docs
-        </button>
-        <button id="btn-open-marketing" class="sidebar-aux-btn">
-          Marketing Site
-        </button>
       </div>
     </aside>
 
-    <!-- MAIN AREA -->
-    <main class="main">
-      <!-- TOP BAR: login / register -->
-      <header class="topbar">
-        <div class="topbar-left">
-          <span id="topbar-user-label">Guest session</span>
+    <section class="content">
+      <div class="contentHeader">
+        <div class="contentTitle" id="activeTabTitle">Chat</div>
+        <div class="contentMeta" id="activeProjectMeta">Project: <span id="projectName">Default</span></div>
+      </div>
+
+      <div class="chatWrap">
+        <div id="chatFeed" class="chatFeed"></div>
+
+        <div class="composer">
+          <textarea id="promptInput" class="prompt" placeholder="Type here… (Shift+Enter for newline)"></textarea>
+          <button id="btnSend" class="btn primary">Send</button>
         </div>
-        <div class="topbar-right">
-          <form id="auth-form" class="auth-form">
-            <input
-              type="email"
-              id="auth-email"
-              placeholder="email"
-              autocomplete="email"
-              required
-            />
-            <input
-              type="password"
-              id="auth-password"
-              placeholder="password"
-              autocomplete="current-password"
-              required
-            />
-            <button type="button" id="btn-login">Login</button>
-            <button type="button" id="btn-register">Register</button>
-            <button type="button" id="btn-logout" class="secondary" style="display:none;">
-              Logout
-            </button>
-          </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- AUTH MODAL -->
+  <div id="authModal" class="modal hidden">
+    <div class="modalBackdrop"></div>
+    <div class="modalCard">
+      <div class="modalHeader">
+        <div class="modalTitle">Welcome</div>
+        <button class="btn ghost" data-close="authModal">✕</button>
+      </div>
+
+      <div class="modalBody">
+        <div class="segRow">
+          <button id="authModeLogin" class="seg active">Log in</button>
+          <button id="authModeRegister" class="seg">Sign up</button>
         </div>
-      </header>
 
-      <!-- ACTIVE PANEL WRAPPER -->
-      <section class="panel-wrapper">
-        <!-- Shared CHAT VIEW + PROMPT for all creative tabs -->
-        <section id="studio-panel" class="panel active-panel">
-          <div id="current-context" class="context-pill">
-            Domain: <span id="current-domain-label">CHAT</span>
-          </div>
+        <label class="label">Email</label>
+        <input id="authEmail" class="input" type="email" placeholder="you@example.com" />
 
-          <div id="chat-log" class="chat-log"></div>
+        <label class="label">Password</label>
+        <input id="authPassword" class="input" type="password" placeholder="••••••••" />
 
-          <form id="chat-form" class="chat-form">
-            <div class="chat-controls-top">
-              <label>
-                Depth:
-                <select id="depth-select">
-                  <option value="deep" selected>Deep</option>
-                  <option value="fast">Fast</option>
-                </select>
-              </label>
-              <label>
-                Project ID:
-                <input
-                  type="number"
-                  id="project-id-input"
-                  placeholder="optional"
-                  min="1"
-                />
-              </label>
-              <button type="button" id="btn-save-canon" class="secondary">
-                Save last answer as canon
-              </button>
-            </div>
+        <div class="hint" id="authHint"></div>
 
-            <textarea
-              id="prompt-input"
-              rows="3"
-              placeholder="Type to your AI here... the active tab will define how she thinks (Storytelling, Game Dev, Music, etc.)"
-            ></textarea>
-
-            <div class="chat-controls-bottom">
-              <button type="submit" id="btn-send" class="primary">
-                Generate
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <!-- SUBSCRIPTION / BILLING PANEL -->
-        <section id="subscription-panel" class="panel">
-          <h2>Subscription & Billing</h2>
-          <p class="panel-intro">
-            Manage your Book Worm AI plan. All payments are handled securely by Stripe.
-          </p>
-
-          <div id="subscription-current" class="subscription-current">
-            <strong>Current plan:</strong> <span id="subscription-plan-label">Free</span><br />
-            <span id="subscription-plan-detail"></span>
-          </div>
-
-          <div class="subscription-grid">
-            <div class="subscription-card">
-              <h3>Basic</h3>
-              <p class="price-line">$10 / month</p>
-              <p>Great for focused writers & small game dev experiments.</p>
-              <ul>
-                <li>Higher monthly generation limits</li>
-                <li>Canon storage for 1–2 projects</li>
-                <li>Basic image prompts</li>
-              </ul>
-              <button class="primary" data-plan="basic" id="btn-basic-plan">
-                Choose Basic
-              </button>
-            </div>
-
-            <div class="subscription-card">
-              <h3>Pro</h3>
-              <p class="price-line">$20 / month</p>
-              <p>For serious multi-world builders and solo devs.</p>
-              <ul>
-                <li>More monthly generations</li>
-                <li>Multiple canon projects</li>
-                <li>Enhanced image & music prompts</li>
-              </ul>
-              <button class="primary" data-plan="pro" id="btn-pro-plan">
-                Choose Pro
-              </button>
-            </div>
-
-            <div class="subscription-card">
-              <h3>Patron</h3>
-              <p class="price-line">$49 / month</p>
-              <p>For power users, studios, and those who want to support development.</p>
-              <ul>
-                <li>Highest generation limits</li>
-                <li>Many canon projects</li>
-                <li>Priority feature requests</li>
-              </ul>
-              <button class="primary" data-plan="patron" id="btn-patron-plan">
-                Choose Patron
-              </button>
-            </div>
-          </div>
-
-          <div class="subscription-note">
-            You must be logged in to upgrade. If you’re the owner, your account
-            automatically bypasses subscription limits.
-          </div>
-        </section>
-
-        <!-- ADMIN PANEL -->
-        <section id="admin-panel" class="panel">
-          <h2>Owner · Admin Dashboard</h2>
-          <p class="panel-intro">
-            This view is only visible for the owner account (configured via <code>BOOKWORM_OWNER_CODE</code>).
-          </p>
-
-          <div class="admin-grid">
-            <div class="admin-card">
-              <h3>Subscribers</h3>
-              <button id="btn-refresh-subscribers" class="secondary small">
-                Refresh subscribers
-              </button>
-              <div id="admin-subscribers-table" class="admin-table"></div>
-            </div>
-
-            <div class="admin-card">
-              <h3>Usage</h3>
-              <button id="btn-refresh-usage" class="secondary small">
-                Refresh usage
-              </button>
-              <div id="admin-usage-summary" class="admin-usage"></div>
-            </div>
-          </div>
-        </section>
-      </section>
-    </main>
+        <button id="btnAuthSubmit" class="btn primary full">Continue</button>
+      </div>
+    </div>
   </div>
+
+  <!-- SETTINGS MODAL -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modalBackdrop"></div>
+    <div class="modalCard wide">
+      <div class="modalHeader">
+        <div class="modalTitle">Settings</div>
+        <button class="btn ghost" data-close="settingsModal">✕</button>
+      </div>
+
+      <div class="modalBody grid2">
+        <div>
+          <div class="sectionTitle">Account</div>
+          <div class="kv">
+            <div class="k">Signed in as</div>
+            <div class="v" id="settingsEmail">—</div>
+          </div>
+          <div class="kv">
+            <div class="k">Plan</div>
+            <div class="v" id="settingsPlan">—</div>
+          </div>
+          <div class="kv">
+            <div class="k">Owner</div>
+            <div class="v" id="settingsOwner">—</div>
+          </div>
+
+          <div class="divider"></div>
+
+          <button id="btnOpenPricing" class="btn full">Open Pricing</button>
+        </div>
+
+        <div>
+          <div class="sectionTitle">Owner / Admin</div>
+          <p class="hint">
+            Owner code unlocks Admin tools (Analytics, Users, Subs) on this account only.
+          </p>
+
+          <label class="label">Owner Code</label>
+          <input id="ownerCode" class="input" type="password" placeholder="Enter owner code…" />
+
+          <button id="btnOwnerLogin" class="btn primary full">Unlock Admin</button>
+
+          <div class="hint" id="ownerHint"></div>
+
+          <div class="divider"></div>
+
+          <button id="btnOwnerLogout" class="btn full">Lock Admin</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CANON MODAL -->
+  <div id="canonModal" class="modal hidden">
+    <div class="modalBackdrop"></div>
+    <div class="modalCard wide">
+      <div class="modalHeader">
+        <div class="modalTitle">Canon</div>
+        <button class="btn ghost" data-close="canonModal">✕</button>
+      </div>
+      <div class="modalBody">
+        <div id="canonList" class="canonList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRICING MODAL -->
+  <div id="pricingModal" class="modal hidden">
+    <div class="modalBackdrop"></div>
+    <div class="modalCard wide">
+      <div class="modalHeader">
+        <div class="modalTitle">Pricing</div>
+        <button class="btn ghost" data-close="pricingModal">✕</button>
+      </div>
+      <div class="modalBody">
+        <div class="pricingGrid">
+          <div class="priceCard">
+            <div class="priceName">Basic</div>
+            <div class="priceTag">$10 / mo</div>
+            <div class="priceDesc">Creators getting started</div>
+            <button class="btn primary full" data-price-plan="basic">Choose Basic</button>
+          </div>
+          <div class="priceCard">
+            <div class="priceName">Pro</div>
+            <div class="priceTag">$20 / mo</div>
+            <div class="priceDesc">Serious creators & teams</div>
+            <button class="btn primary full" data-price-plan="pro">Choose Pro</button>
+          </div>
+          <div class="priceCard glow">
+            <div class="priceName">Patron</div>
+            <div class="priceTag">$49 / mo</div>
+            <div class="priceDesc">Power users + max features</div>
+            <button class="btn primary full" data-price-plan="patron">Choose Patron</button>
+          </div>
+        </div>
+
+        <div class="hint">
+          Checkout opens in a new tab. After payment, refresh this page and your plan will sync.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast hidden"></div>
 
   <script src="/static/script.js"></script>
 </body>

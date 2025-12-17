@@ -1,776 +1,475 @@
-// ----------------------------
-// BASIC STATE
-// ----------------------------
-
-let authToken = null;
-let currentUser = null; // { email, is_owner, plan }
-let activePanel = "chat";
-let activeDomain = "CHAT";
-let depthMode = "deep";
-let lastAssistantAnswer = "";
-let lastProjectId = null;
-
-// Map panel -> domain label for the prompt
-const PANEL_DOMAIN_MAP = {
-  chat: "CHAT",
-  storytelling: "STORYTELLING",
-  gamedev: "GAME_DEV",
-  music: "MUSIC_DEV",
-  book: "BOOK_WRITING",
-  language: "LANGUAGE_LAB",
-  image: "IMAGE_LAB",
-  voice: "VOICE_LAB",
-  coding: "CODING",
-  subscription: "CHAT",
-  admin: "ADMIN",
-};
-
-// ----------------------------
-// DOM HELPERS
-// ----------------------------
-
-function $(id) {
-  return document.getElementById(id);
-}
-
-function appendMessage(role, text) {
-  const log = $("chat-log");
-  if (!log) return;
-
-  const div = document.createElement("div");
-  div.classList.add("message");
-  if (role === "user") div.classList.add("user");
-  else if (role === "assistant") div.classList.add("assistant");
-  else div.classList.add("system");
-
-  const safeText = String(text || "").replace(/\n/g, "<br/>");
-  div.innerHTML = safeText;
-
-  log.appendChild(div);
-  log.scrollTop = log.scrollHeight;
-}
-
-function setPlanPill(plan) {
-  const pill = $("plan-pill");
-  if (!pill) return;
-
-  pill.className = "plan-pill";
-  let cls = "plan-free";
-  let label = "Free";
-
-  if (plan === "basic") {
-    cls = "plan-basic";
-    label = "Basic";
-  } else if (plan === "pro") {
-    cls = "plan-pro";
-    label = "Pro";
-  } else if (plan === "patron") {
-    cls = "plan-patron";
-    label = "Patron";
-  } else if (plan === "owner") {
-    cls = "plan-owner";
-    label = "Owner";
-  }
-
-  pill.classList.add(cls);
-  pill.textContent = `Plan: ${label}`;
-
-  const subPlanLabel = $("subscription-plan-label");
-  if (subPlanLabel) subPlanLabel.textContent = label;
-}
-
-// ----------------------------
-// AUTH STORAGE
-// ----------------------------
-
-function loadAuthFromStorage() {
-  const token = window.localStorage.getItem("bookworm_token");
-  const email = window.localStorage.getItem("bookworm_email");
-  const isOwner = window.localStorage.getItem("bookworm_is_owner") === "true";
-  const plan = window.localStorage.getItem("bookworm_plan") || "free";
-
-  if (token && email) {
-    authToken = token;
-    currentUser = { email, is_owner: isOwner, plan };
-  }
-}
-
-function saveAuthToStorage(token, email, isOwner, plan) {
-  if (!token || !email) {
-    console.warn("saveAuthToStorage called with missing token/email", {
-      token,
-      email,
-      isOwner,
-      plan,
-    });
-  }
-
-  authToken = token || null;
-  currentUser = email
-    ? { email, is_owner: !!isOwner, plan: plan || "free" }
-    : null;
-
-  if (authToken && currentUser) {
-    window.localStorage.setItem("bookworm_token", authToken);
-    window.localStorage.setItem("bookworm_email", currentUser.email);
-    window.localStorage.setItem(
-      "bookworm_is_owner",
-      currentUser.is_owner ? "true" : "false"
-    );
-    window.localStorage.setItem("bookworm_plan", currentUser.plan);
-  } else {
-    clearAuth();
-  }
-}
-
-function clearAuth() {
-  authToken = null;
-  currentUser = null;
-  window.localStorage.removeItem("bookworm_token");
-  window.localStorage.removeItem("bookworm_email");
-  window.localStorage.removeItem("bookworm_is_owner");
-  window.localStorage.removeItem("bookworm_plan");
-}
-
-// ----------------------------
-// UI UPDATE
-// ----------------------------
-
-function updateAuthUI() {
-  const statusLine = $("account-status-line");
-  const topbarLabel = $("topbar-user-label");
-  const btnLogout = $("btn-logout");
-  const btnLogin = $("btn-login");
-  const btnRegister = $("btn-register");
-  const emailInput = $("auth-email");
-  const passwordInput = $("auth-password");
-  const adminTab = $("tab-admin");
-  const planDetail = $("subscription-plan-detail");
-
-  if (!currentUser) {
-    if (statusLine) statusLine.textContent = "Not signed in";
-    if (topbarLabel) topbarLabel.textContent = "Guest session";
-    if (btnLogout) btnLogout.style.display = "none";
-    if (btnLogin) btnLogin.style.display = "inline-block";
-    if (btnRegister) btnRegister.style.display = "inline-block";
-    if (adminTab) adminTab.style.display = "none";
-
-    setPlanPill("free");
-    if (planDetail) {
-      planDetail.textContent =
-        "You are in Free mode. Login and upgrade to unlock more power.";
-    }
-    return;
-  }
-
-  const plan = currentUser.plan || "free";
-
-  if (statusLine)
-    statusLine.textContent = `Signed in as ${currentUser.email}`;
-  if (topbarLabel)
-    topbarLabel.textContent = `${currentUser.email} · ${plan.toUpperCase()}`;
-  if (btnLogout) btnLogout.style.display = "inline-block";
-  if (btnLogin) btnLogin.style.display = "none";
-  if (btnRegister) btnRegister.style.display = "none";
-
-  if (emailInput) emailInput.value = "";
-  if (passwordInput) passwordInput.value = "";
-
-  if (currentUser.is_owner && adminTab) {
-    adminTab.style.display = "block";
-  } else if (adminTab) {
-    adminTab.style.display = "none";
-  }
-
-  setPlanPill(plan);
-
-  if (planDetail) {
-    if (plan === "free") {
-      planDetail.textContent =
-        "Free mode: great for testing the studio. Some limits apply.";
-    } else if (plan === "basic") {
-      planDetail.textContent =
-        "Basic plan: expanded usage for focused writers and devs.";
-    } else if (plan === "pro") {
-      planDetail.textContent =
-        "Pro plan: serious capacity for multi-world, multi-project workflows.";
-    } else if (plan === "patron") {
-      planDetail.textContent =
-        "Patron plan: premium access and direct support for ongoing development.";
-    } else if (plan === "owner") {
-      planDetail.textContent =
-        "Owner mode: this account bypasses subscription limits and has access to admin tools.";
-    }
-  }
-}
-
-// read /me and sync plan/is_owner from backend
-async function fetchMe() {
-  try {
-    const headers = {};
-    if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
-
-    const res = await fetch("/me", { headers });
-    if (!res.ok) {
-      console.warn("fetchMe non-OK", res.status);
-      return;
-    }
-
-    const data = await res.json();
-    console.log("/me response", data);
-
-    // our backend returns anonymous if no auth
-    if (!authToken || data.email === "anonymous@example.com") {
-      currentUser = null;
-      clearAuth();
-      updateAuthUI();
-      return;
-    }
-
-    const email = data.email || currentUser?.email || "unknown@example.com";
-    const plan =
-      data.plan ||
-      data.subscription_plan ||
-      currentUser?.plan ||
-      "free";
-    const isOwner = !!(data.is_owner ?? data.owner ?? false);
-
-    saveAuthToStorage(authToken, email, isOwner, plan);
-    updateAuthUI();
-  } catch (err) {
-    console.error("Error calling /me", err);
-  }
-}
-
-// ----------------------------
-// PANEL / TAB SWITCHING
-// ----------------------------
-
-function setActivePanel(panelName) {
-  activePanel = panelName;
-
-  const tabs = document.querySelectorAll(".nav-tab");
-  tabs.forEach((btn) => {
-    if (btn.dataset.panel === panelName) btn.classList.add("active");
-    else btn.classList.remove("active");
-  });
-
-  const panels = ["studio-panel", "subscription-panel", "admin-panel"];
-  panels.forEach((id) => {
-    const el = $(id);
-    if (!el) return;
-
-    if (id === "studio-panel" && panelName !== "subscription" && panelName !== "admin") {
-      el.classList.add("active-panel");
-    } else if (id === "subscription-panel" && panelName === "subscription") {
-      el.classList.add("active-panel");
-    } else if (id === "admin-panel" && panelName === "admin") {
-      el.classList.add("active-panel");
-    } else {
-      el.classList.remove("active-panel");
-    }
-  });
-
-  if (panelName !== "subscription" && panelName !== "admin") {
-    const domain = PANEL_DOMAIN_MAP[panelName] || "CHAT";
-    activeDomain = domain;
-    const label = $("current-domain-label");
-    if (label) label.textContent = domain;
-  }
-}
-
-// ----------------------------
-// AUTH HANDLERS
-// ----------------------------
-
-// helper to normalize login/register responses
-function normalizeAuthResponse(data, fallbackEmail) {
-  console.log("normalizeAuthResponse input", data);
-  if (!data || typeof data !== "object") return null;
-
-  const token =
-    data.token ||
-    data.access_token ||
-    data.jwt ||
-    data.session_token ||
-    null;
-
-  const email =
-    data.email ||
-    (data.user && data.user.email) ||
-    fallbackEmail ||
-    null;
-
-  const plan =
-    data.plan ||
-    data.subscription_plan ||
-    (data.user && data.user.plan) ||
-    "free";
-
-  const isOwner =
-    !!(data.is_owner ?? data.owner ?? (data.user && data.user.is_owner) ?? false);
-
-  return { token, email, plan, isOwner };
-}
-
-async function handleRegister() {
-  const email = $("auth-email").value.trim();
-  const password = $("auth-password").value.trim();
-  if (!email || !password) {
-    alert("Please fill email and password.");
-    return;
-  }
-
-  try {
-    const res = await fetch("/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const raw = await res.json().catch(() => ({}));
-    console.log("/register raw response:", raw);
-
-    if (!res.ok) {
-      alert("Register failed: " + (raw.detail || res.statusText));
-      return;
-    }
-
-    const norm = normalizeAuthResponse(raw, email);
-
-    if (!norm || !norm.token || !norm.email) {
-      appendMessage(
-        "assistant",
-        "⚠ Register succeeded on server, but no usable auth token/email was returned. You may need to click **Login** next."
-      );
-      return;
-    }
-
-    saveAuthToStorage(norm.token, norm.email, norm.isOwner, norm.plan);
-    appendMessage(
-      "system",
-      `Registered & logged in as <b>${norm.email}</b>. Plan: <b>${norm.plan.toUpperCase()}</b>.`
-    );
-    updateAuthUI();
-  } catch (err) {
-    console.error("register error", err);
-    alert("Error registering.");
-  }
-}
-
-async function handleLogin() {
-  const email = $("auth-email").value.trim();
-  const password = $("auth-password").value.trim();
-  if (!email || !password) {
-    alert("Please fill email and password.");
-    return;
-  }
-
-  try {
-    const res = await fetch("/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const raw = await res.json().catch(() => ({}));
-    console.log("/login raw response:", raw);
-
-    if (!res.ok) {
-      alert("Login failed: " + (raw.detail || res.statusText));
-      return;
-    }
-
-    const norm = normalizeAuthResponse(raw, email);
-
-    if (!norm || !norm.token || !norm.email) {
-      appendMessage(
-        "assistant",
-        "⚠ Login succeeded on server, but no usable auth token/email was returned. Check backend /login response shape."
-      );
-      return;
-    }
-
-    saveAuthToStorage(norm.token, norm.email, norm.isOwner, norm.plan);
-    appendMessage(
-      "system",
-      `Logged in as <b>${norm.email}</b>. Plan: <b>${norm.plan.toUpperCase()}</b>.`
-    );
-    updateAuthUI();
-    fetchMe(); // sync with backend /me
-  } catch (err) {
-    console.error("login error", err);
-    alert("Error logging in.");
-  }
-}
-
-function handleLogout() {
-  clearAuth();
-  updateAuthUI();
-  appendMessage("system", "You have been logged out locally.");
-}
-
-// ----------------------------
-// GENERATE HANDLER
-// ----------------------------
-
-async function handleChatSubmit(e) {
-  e.preventDefault();
-  const inputEl = $("prompt-input");
-  if (!inputEl) return;
-  const rawPrompt = inputEl.value.trim();
-  if (!rawPrompt) return;
-
-  appendMessage("user", rawPrompt);
-  inputEl.value = "";
-
-  const depthSelect = $("depth-select");
-  depthMode = depthSelect ? depthSelect.value : "deep";
-
-  const projectIdInput = $("project-id-input");
-  let projectId = null;
-  if (projectIdInput && projectIdInput.value.trim() !== "") {
-    projectId = parseInt(projectIdInput.value.trim(), 10);
-    if (Number.isNaN(projectId)) projectId = null;
-  }
-  lastProjectId = projectId;
-
-  const promptWithDomain = `[DOMAIN: ${activeDomain}]\n\n${rawPrompt}`;
-
-  const body = {
-    prompt: promptWithDomain,
-    mode: "auto",
-    depth: depthMode,
-    project_id: projectId,
+/* Book Worm AI Studio UI (Settings + Owner Admin + Canon + Pricing)
+   Works with:
+   - /auth/me, /auth/login, /auth/register, /auth/logout
+   - /owner/unlock, /owner/lock
+   - /canon/save, /canon/list
+   - /stripe/create-checkout-session
+*/
+
+(() => {
+  "use strict";
+
+  // ---------- helpers ----------
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+  const show = (el) => el && el.classList.remove("hidden");
+  const hide = (el) => el && el.classList.add("hidden");
+
+  const modalOpen = (id) => show(document.getElementById(id));
+  const modalClose = (id) => hide(document.getElementById(id));
+
+  const toast = (msg) => {
+    // tiny non-invasive toast
+    console.log(msg);
+    const t = document.createElement("div");
+    t.textContent = msg;
+    t.style.position = "fixed";
+    t.style.bottom = "16px";
+    t.style.left = "16px";
+    t.style.padding = "10px 12px";
+    t.style.borderRadius = "10px";
+    t.style.background = "rgba(0,0,0,.8)";
+    t.style.color = "white";
+    t.style.zIndex = "9999";
+    t.style.fontSize = "14px";
+    t.style.maxWidth = "60vw";
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2400);
   };
 
-  const headers = { "Content-Type": "application/json" };
-  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
-
-  appendMessage("assistant", "Thinking...");
-
-  try {
-    const res = await fetch("/generate", {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      appendMessage(
-        "assistant",
-        `⚠ Backend error: ${JSON.stringify(err)}`
-      );
-      return;
-    }
-
-    const data = await res.json();
-    lastAssistantAnswer = data.response || "";
-    appendMessage("assistant", lastAssistantAnswer);
-  } catch (err) {
-    console.error("generate error", err);
-    appendMessage("assistant", "⚠ Network error talking to Book Worm backend.");
-  }
-}
-
-// ----------------------------
-// SAVE CANON
-// ----------------------------
-
-async function handleSaveCanon() {
-  if (!lastAssistantAnswer) {
-    alert("No AI answer to save yet.");
-    return;
-  }
-  const projectIdInput = $("project-id-input");
-  let projectId = null;
-  if (projectIdInput && projectIdInput.value.trim() !== "") {
-    projectId = parseInt(projectIdInput.value.trim(), 10);
-  }
-  if (!projectId || Number.isNaN(projectId)) {
-    alert("Please set a valid Project ID before saving canon.");
-    return;
-  }
-
-  if (!authToken) {
-    alert("You must be logged in to save canon.");
-    return;
-  }
-
-  const title = prompt(
-    "Title for this canon doc:",
-    `Canon note (${new Date().toLocaleString()})`
-  );
-  if (!title) return;
-
-  const tags = [activeDomain.toLowerCase(), "canon"];
-
-  try {
-    const res = await fetch("/docs", {
-      method: "POST",
+  async function api(path, opts = {}) {
+    const res = await fetch(path, {
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${authToken}`,
+        ...(opts.headers || {}),
       },
-      body: JSON.stringify({
-        project_id: projectId,
-        title,
-        body: lastAssistantAnswer,
-        tags,
-        canon_state: "LOCKED_CANON",
-        source: "studio-save",
-      }),
+      ...opts,
     });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      appendMessage(
-        "assistant",
-        `⚠ Error saving canon: ${JSON.stringify(err)}`
-      );
-      return;
-    }
-
-    appendMessage(
-      "assistant",
-      `📚 Saved this answer as <b>LOCKED CANON</b> in project ${projectId}.`
-    );
-  } catch (err) {
-    console.error("save canon error", err);
-    appendMessage("assistant", "⚠ Network error while saving canon.");
-  }
-}
-
-// ----------------------------
-// STRIPE CHECKOUT
-// ----------------------------
-
-async function startCheckout(plan) {
-  if (!authToken) {
-    alert("You need to be logged in to start a subscription.");
-    return;
-  }
-
-  if (currentUser && currentUser.is_owner) {
-    alert("Owner account already bypasses subscription limits.");
-    return;
-  }
-
-  const origin = window.location.origin;
-  const successUrl = `${origin}?checkout=success`;
-  const cancelUrl = `${origin}?checkout=cancel`;
-
-  try {
-    const res = await fetch("/stripe/create-checkout-session", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({
-        plan,
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-      }),
-    });
-
-    const raw = await res.json().catch(() => ({}));
-    console.log("/stripe/create-checkout-session response:", raw);
+    // attempt JSON always
+    let data = null;
+    const text = await res.text();
+    try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
 
     if (!res.ok) {
-      alert("Stripe error: " + (raw.detail || res.statusText));
-      return;
+      const detail = (data && (data.detail || data.error)) ? (data.detail || data.error) : `HTTP ${res.status}`;
+      const err = new Error(detail);
+      err.status = res.status;
+      err.data = data;
+      throw err;
     }
-
-    if (!raw.checkout_url) {
-      alert("Stripe did not return a checkout URL.");
-      return;
-    }
-
-    window.location.href = raw.checkout_url;
-  } catch (err) {
-    console.error("stripe checkout error", err);
-    alert("Network error during Stripe checkout.");
-  }
-}
-
-// ----------------------------
-// ADMIN
-// ----------------------------
-
-async function refreshSubscribers() {
-  if (!authToken || !currentUser || !currentUser.is_owner) {
-    alert("Owner access only.");
-    return;
+    return data;
   }
 
-  try {
-    const res = await fetch("/admin/subscribers", {
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
-    const raw = await res.json().catch(() => ({}));
-    console.log("/admin/subscribers response:", raw);
+  // ---------- state ----------
+  const state = {
+    me: null,
+    settings: null,
+    projectId: null,
+    tab: "chat",
+    ownerUnlocked: false,
+  };
 
-    if (!res.ok) {
-      alert("Error fetching subscribers: " + (raw.detail || res.statusText));
-      return;
-    }
+  const TAB_IDS = ["chat", "writing", "gamedev", "musicdev", "imagelab", "voicelab", "gamedesigner"];
 
-    const container = $("admin-subscribers-table");
-    if (!container) return;
+  // ---------- elements ----------
+  const elUserBadge = $("#userBadge");
+  const btnSettings = $("#btnSettings");
+  const btnLogout = $("#btnLogout");
 
-    if (!raw.data || raw.data.length === 0) {
-      container.innerHTML = "<p>No subscribers yet.</p>";
-      return;
-    }
+  const settingsModal = $("#settingsModal");
+  const settingsEmail = $("#settingsEmail");
+  const settingsPlan = $("#settingsPlan");
+  const settingsOwner = $("#settingsOwner");
+  const btnOpenPricing = $("#btnOpenPricing");
+  const ownerCode = $("#ownerCode");
+  const btnOwnerLogin = $("#btnOwnerLogin");
+  const btnOwnerLogout = $("#btnOwnerLogout");
+  const ownerHint = $("#ownerHint");
+  const adminCard = $("#adminCard");
 
-    let html =
-      '<table><thead><tr><th>User ID</th><th>Email</th><th>Plan</th><th>Status</th><th>Created</th></tr></thead><tbody>';
-    for (const row of raw.data) {
-      html += `<tr>
-        <td>${row.user_id}</td>
-        <td>${row.email}</td>
-        <td>${row.plan}</td>
-        <td>${row.status}</td>
-        <td>${row.created_at}</td>
-      </tr>`;
-    }
-    html += "</tbody></table>";
-    container.innerHTML = html;
-  } catch (err) {
-    console.error("admin subscribers error", err);
-    alert("Network error loading subscribers.");
-  }
-}
+  const authModal = $("#authModal");
+  const authModeLogin = $("#authModeLogin");
+  const authModeRegister = $("#authModeRegister");
+  const authEmail = $("#authEmail");
+  const authPassword = $("#authPassword");
+  const btnAuthSubmit = $("#btnAuthSubmit");
+  const authHint = $("#authHint");
 
-async function refreshUsage() {
-  if (!authToken || !currentUser || !currentUser.is_owner) {
-    alert("Owner access only.");
-    return;
-  }
+  const canonModal = $("#canonModal");
+  const canonList = $("#canonList");
 
-  try {
-    const res = await fetch("/admin/usage", {
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
-    const raw = await res.json().catch(() => ({}));
-    console.log("/admin/usage response:", raw);
+  const pricingModal = $("#pricingModal");
 
-    if (!res.ok) {
-      alert("Error fetching usage: " + (raw.detail || res.statusText));
-      return;
-    }
+  const btnSend = $("#btnSend");
+  const promptInput = $("#prompt");
+  const output = $("#output");
 
-    const container = $("admin-usage-summary");
-    if (!container) return;
+  const btnNewProject = $("#btnNewProject");
+  const btnSwitchProject = $("#btnSwitchProject");
 
-    let html = `<p>Total generations: <b>${raw.total_generations}</b></p>`;
-    if (raw.events && raw.events.length > 0) {
-      html += "<ul>";
-      for (const ev of raw.events) {
-        html += `<li>${ev.event_type}: ${ev.count}</li>`;
-      }
-      html += "</ul>";
+  // ---------- UI rendering ----------
+  function setBadge() {
+    if (!elUserBadge) return;
+    if (state.me?.logged_in && state.me?.email) {
+      elUserBadge.textContent = state.me.email;
+      show(elUserBadge);
+      show(btnLogout);
     } else {
-      html += "<p>No usage events recorded yet.</p>";
+      hide(elUserBadge);
+      hide(btnLogout);
     }
-    container.innerHTML = html;
-  } catch (err) {
-    console.error("admin usage error", err);
-    alert("Network error loading usage.");
   }
-}
 
-// ----------------------------
-// AUX BUTTONS
-// ----------------------------
+  function setOwnerUI() {
+    // admin card appears only when owner unlocked
+    if (state.ownerUnlocked) show(adminCard);
+    else hide(adminCard);
 
-function handleAuxButtons() {
-  const docsBtn = $("btn-open-docs");
-  if (docsBtn) {
-    docsBtn.addEventListener("click", () => {
-      window.open("/docs", "_blank");
+    if (settingsOwner) settingsOwner.textContent = state.ownerUnlocked ? "Yes" : "No";
+  }
+
+  function setSettingsUI() {
+    if (!state.settings) return;
+    if (settingsEmail) settingsEmail.textContent = state.settings.me?.email || "—";
+    if (settingsPlan) settingsPlan.textContent = state.settings.me?.plan || "—";
+    state.ownerUnlocked = !!state.settings.me?.is_owner;
+    setOwnerUI();
+  }
+
+  function appendMessage(role, text) {
+    if (!output) return;
+    const row = document.createElement("div");
+    row.className = `msg ${role}`;
+    row.textContent = text;
+    output.appendChild(row);
+    output.scrollTop = output.scrollHeight;
+  }
+
+  // ---------- auth ----------
+  let authMode = "login"; // or register
+  function setAuthMode(mode) {
+    authMode = mode;
+    if (!authHint) return;
+    authHint.textContent = "";
+    if (authModeLogin) authModeLogin.classList.toggle("active", mode === "login");
+    if (authModeRegister) authModeRegister.classList.toggle("active", mode === "register");
+  }
+
+  async function refreshMe() {
+    try {
+      state.me = await api("/auth/me", { method: "GET" });
+    } catch {
+      state.me = { logged_in: false };
+    }
+    setBadge();
+  }
+
+  async function ensureLoggedIn() {
+    await refreshMe();
+    if (!state.me?.logged_in) {
+      modalOpen("authModal");
+      throw new Error("Not logged in");
+    }
+  }
+
+  // ---------- settings ----------
+  async function loadSettings() {
+    state.settings = await api("/api/settings", { method: "GET" });
+    setSettingsUI();
+  }
+
+  async function openSettings() {
+    modalOpen("settingsModal");
+    try {
+      await loadSettings();
+    } catch (e) {
+      toast(`Settings error: ${e.message}`);
+    }
+  }
+
+  // ---------- canon ----------
+  async function saveToCanon() {
+    await ensureLoggedIn();
+
+    const content = (promptInput?.value || "").trim();
+    if (!content) {
+      toast("Type something first, then Save to Canon.");
+      return;
+    }
+
+    const title = `Saved (${state.tab})`;
+    await api("/canon/save", {
+      method: "POST",
+      body: JSON.stringify({
+        tab: state.tab,
+        title,
+        content,
+      }),
+    });
+    toast("Saved to canon ✅");
+  }
+
+  async function viewCanon() {
+    await ensureLoggedIn();
+    modalOpen("canonModal");
+    canonList.innerHTML = "Loading…";
+    try {
+      const data = await api("/canon/list", { method: "GET" });
+      const items = data?.items || [];
+      if (!items.length) {
+        canonList.innerHTML = "<div class='hint'>No canon entries yet.</div>";
+        return;
+      }
+      canonList.innerHTML = items.map((it) => {
+        const t = (it.title || "Untitled").replaceAll("<", "&lt;");
+        const c = (it.content || "").replaceAll("<", "&lt;");
+        const when = (it.created_at || "").replaceAll("<", "&lt;");
+        return `
+          <div class="canonItem">
+            <div class="canonTitle">${t}</div>
+            <div class="canonMeta">${when} • ${it.tab || ""}</div>
+            <div class="canonBody">${c}</div>
+          </div>
+        `;
+      }).join("");
+    } catch (e) {
+      canonList.innerHTML = `<div class="hint">Canon error: ${e.message}</div>`;
+    }
+  }
+
+  // ---------- stripe ----------
+  async function openPricing() {
+    modalOpen("pricingModal");
+  }
+
+  async function checkout(plan) {
+    await ensureLoggedIn();
+    try {
+      const data = await api("/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan }),
+      });
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        toast("Stripe error: no checkout URL returned.");
+      }
+    } catch (e) {
+      toast(`Stripe error: ${e.message}`);
+    }
+  }
+
+  // ---------- owner/admin ----------
+  async function ownerUnlock() {
+    await ensureLoggedIn();
+    const code = (ownerCode?.value || "").trim();
+    if (!code) {
+      ownerHint.textContent = "Enter your owner code.";
+      return;
+    }
+    ownerHint.textContent = "Checking…";
+    try {
+      const data = await api("/owner/unlock", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      });
+      ownerHint.textContent = data?.ok ? "Owner unlocked ✅" : "Owner unlock failed.";
+      await loadSettings();
+      toast("Admin unlocked ✅");
+    } catch (e) {
+      ownerHint.textContent = `Error: ${e.message}`;
+    }
+  }
+
+  async function ownerLock() {
+    await ensureLoggedIn();
+    ownerHint.textContent = "Locking…";
+    try {
+      await api("/owner/lock", { method: "POST" });
+      ownerHint.textContent = "Admin locked.";
+      await loadSettings();
+      toast("Admin locked ✅");
+    } catch (e) {
+      ownerHint.textContent = `Error: ${e.message}`;
+    }
+  }
+
+  async function adminAnalytics() {
+    await ensureLoggedIn();
+    if (!state.ownerUnlocked) return toast("Owner mode required.");
+    toast("Analytics tab coming from backend route (admin).");
+    // If your backend has /admin/analytics you can wire it here
+  }
+
+  // ---------- generate ----------
+  async function sendPrompt() {
+    await ensureLoggedIn();
+    const prompt = (promptInput?.value || "").trim();
+    if (!prompt) return;
+
+    appendMessage("user", prompt);
+    promptInput.value = "";
+
+    try {
+      const data = await api("/generate", {
+        method: "POST",
+        body: JSON.stringify({ tab: state.tab, prompt }),
+      });
+      appendMessage("assistant", data?.response || "⚠ No response");
+    } catch (e) {
+      appendMessage("assistant", `⚠ Backend error: ${e.message}`);
+    }
+  }
+
+  // ---------- tab switching ----------
+  function normalizeTab(t) {
+    const x = (t || "").toLowerCase().trim();
+    if (TAB_IDS.includes(x)) return x;
+    return "chat";
+  }
+
+  function setActiveTab(tab) {
+    state.tab = normalizeTab(tab);
+
+    // Highlight tab buttons if they exist
+    $$(".tab").forEach((b) => {
+      b.classList.toggle("active", b.dataset.tab === state.tab);
+    });
+
+    // Optional: show current tab somewhere
+    const tabLabel = $("#tabLabel");
+    if (tabLabel) tabLabel.textContent = state.tab;
+  }
+
+  // ---------- init wiring ----------
+  function wireClosers() {
+    $$("[data-close]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        modalClose(btn.dataset.close);
+      });
     });
   }
 
-  const marketingBtn = $("btn-open-marketing");
-  if (marketingBtn) {
-    marketingBtn.addEventListener("click", () => {
-      window.open(
-        "https://therevangaming.github.io/bookwormai-site/",
-        "_blank"
-      );
+  function wireSettings() {
+    if (btnSettings) btnSettings.addEventListener("click", openSettings);
+    if (btnLogout) btnLogout.addEventListener("click", async () => {
+      try { await api("/auth/logout", { method: "POST" }); } catch {}
+      await refreshMe();
+      toast("Logged out.");
     });
-  }
-}
 
-// ----------------------------
-// INIT
-// ----------------------------
-
-function init() {
-  const btnLogin = $("btn-login");
-  const btnRegister = $("btn-register");
-  const btnLogout = $("btn-logout");
-
-  if (btnLogin) btnLogin.addEventListener("click", handleLogin);
-  if (btnRegister) btnRegister.addEventListener("click", handleRegister);
-  if (btnLogout) btnLogout.addEventListener("click", handleLogout);
-
-  const chatForm = $("chat-form");
-  if (chatForm) chatForm.addEventListener("submit", handleChatSubmit);
-
-  const depthSelect = $("depth-select");
-  if (depthSelect) {
-    depthSelect.addEventListener("change", () => {
-      depthMode = depthSelect.value;
-    });
+    if (btnOpenPricing) btnOpenPricing.addEventListener("click", openPricing);
+    if (btnOwnerLogin) btnOwnerLogin.addEventListener("click", ownerUnlock);
+    if (btnOwnerLogout) btnOwnerLogout.addEventListener("click", ownerLock);
   }
 
-  const saveCanonBtn = $("btn-save-canon");
-  if (saveCanonBtn) saveCanonBtn.addEventListener("click", handleSaveCanon);
+  function wireAuth() {
+    if (authModeLogin) authModeLogin.addEventListener("click", () => setAuthMode("login"));
+    if (authModeRegister) authModeRegister.addEventListener("click", () => setAuthMode("register"));
 
-  const navTabs = document.querySelectorAll(".nav-tab");
-  navTabs.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const panel = btn.dataset.panel;
-      if (!panel) return;
-      setActivePanel(panel);
+    if (btnAuthSubmit) btnAuthSubmit.addEventListener("click", async () => {
+      const email = (authEmail?.value || "").trim();
+      const password = (authPassword?.value || "").trim();
+      authHint.textContent = "";
 
-      if (panel !== "subscription" && panel !== "admin") {
-        appendMessage(
-          "system",
-          `Switched to <b>${PANEL_DOMAIN_MAP[panel] || "CHAT"}</b> domain.`
-        );
+      if (!email || !password) {
+        authHint.textContent = "Enter email + password.";
+        return;
+      }
+
+      try {
+        if (authMode === "register") {
+          await api("/auth/register", {
+            method: "POST",
+            body: JSON.stringify({ email, password }),
+          });
+        }
+        await api("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+
+        modalClose("authModal");
+        await refreshMe();
+        await loadSettings();
+        toast("Logged in ✅");
+      } catch (e) {
+        authHint.textContent = e.message;
       }
     });
-  });
+  }
 
-  const basicBtn = $("btn-basic-plan");
-  const proBtn = $("btn-pro-plan");
-  const patronBtn = $("btn-patron-plan");
-  if (basicBtn) basicBtn.addEventListener("click", () => startCheckout("basic"));
-  if (proBtn) proBtn.addEventListener("click", () => startCheckout("pro"));
-  if (patronBtn) patronBtn.addEventListener("click", () => startCheckout("patron"));
+  function wireTools() {
+    $$(".btn.tool").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const tool = btn.dataset.tool;
 
-  const btnSubs = $("btn-refresh-subscribers");
-  const btnUsage = $("btn-refresh-usage");
-  if (btnSubs) btnSubs.addEventListener("click", refreshSubscribers);
-  if (btnUsage) btnUsage.addEventListener("click", refreshUsage);
+        if (tool === "save_to_canon") return saveToCanon();
+        if (tool === "view_canon") return viewCanon();
+        if (tool === "pricing") return openPricing();
 
-  handleAuxButtons();
+        if (tool === "admin_analytics") return adminAnalytics();
+        if (tool === "admin_users") return toast("Users admin view: wire to backend admin route if enabled.");
+        if (tool === "admin_subs") return toast("Subs admin view: wire to backend admin route if enabled.");
 
-  loadAuthFromStorage();
-  updateAuthUI();
-  fetchMe();
+        toast(`Tool not wired: ${tool}`);
+      });
+    });
 
-  setActivePanel("chat");
+    $$("[data-price-plan]").forEach((b) => {
+      b.addEventListener("click", () => checkout(b.dataset.pricePlan));
+    });
+  }
 
-  appendMessage(
-    "assistant",
-    "Welcome to <b>Book Worm AI Studio</b>. Sign in (or create an account), pick a tab, and I’ll respond in that domain’s mindset (Storytelling, Game Dev, Music, etc.)."
-  );
-}
+  function wireChat() {
+    if (btnSend) btnSend.addEventListener("click", sendPrompt);
+    if (promptInput) {
+      promptInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendPrompt();
+        }
+      });
+    }
+  }
 
-document.addEventListener("DOMContentLoaded", init);
+  function wireTabs() {
+    // If you have tab buttons with class .tab and data-tab
+    $$(".tab").forEach((b) => {
+      b.addEventListener("click", () => setActiveTab(b.dataset.tab));
+    });
+  }
+
+  function wireProjects() {
+    if (btnNewProject) btnNewProject.addEventListener("click", async () => {
+      await ensureLoggedIn();
+      toast("New Project: wire to /api/projects/create if your UI flow is ready.");
+    });
+
+    if (btnSwitchProject) btnSwitchProject.addEventListener("click", async () => {
+      await ensureLoggedIn();
+      toast("Switch Project: wire to /api/projects/list + select UI when ready.");
+    });
+  }
+
+  async function boot() {
+    wireClosers();
+    wireSettings();
+    wireAuth();
+    wireTools();
+    wireChat();
+    wireTabs();
+    wireProjects();
+
+    setAuthMode("login");
+    setActiveTab("chat");
+
+    await refreshMe();
+    try { await loadSettings(); } catch {}
+  }
+
+  document.addEventListener("DOMContentLoaded", boot);
+})();
