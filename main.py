@@ -825,6 +825,14 @@ def debug_stripe():
         "stripe_import_ok": stripe is not None,
     }
 
+@app.get("/debug/owner")
+def debug_owner():
+    # safe debug: doesn't reveal the code, only whether it exists
+    v = os.getenv("BOOKWORM_OWNER_CODE", "")
+    return {
+        "owner_env_present": bool(v),
+        "owner_len": len(v) if v else 0,
+    }
 
 # =========================
 # STRIPE: CHECKOUT + WEBHOOK
